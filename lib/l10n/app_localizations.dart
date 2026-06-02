@@ -1396,20 +1396,18 @@ class AppLocalizations {
     String? countryCode = _locale.countryCode;
     
     // Try with full locale code first (e.g., zh_CN)
-    if (countryCode != null) {
-      String fullKey = '${languageCode}_$countryCode';
-      if (languageNames.containsKey(fullKey)) {
-        return languageNames[fullKey]!;
-      }
+    String fullKey = '${languageCode}_$countryCode';
+    if (languageNames.containsKey(fullKey)) {
+      return languageNames[fullKey]!;
     }
-    
+      
     // Try with just language code (e.g., en)
     if (languageNames.containsKey(languageCode)) {
       return languageNames[languageCode]!;
     }
     
     // If still not found, try alternative combinations
-    final alternatives = [
+    final alternatives = <String>[
       if (countryCode != null) '${languageCode}_${countryCode.toUpperCase()}',
       '${languageCode}_${languageCode.toUpperCase()}',
     ];

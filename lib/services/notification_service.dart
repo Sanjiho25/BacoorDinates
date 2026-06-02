@@ -1,7 +1,19 @@
+import 'dart:io';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+const AndroidNotificationChannel _forumNotificationChannel = AndroidNotificationChannel(
+  'forum_channel',
+  'Forum Notifications',
+  description: 'Notifications for forum activities',
+  importance: Importance.high,
+);
+
+@pragma('vm:entry-point')
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -9,7 +21,6 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<void> initialize() async {
@@ -28,7 +39,7 @@ class NotificationService {
       iOS: initializationSettingsIOS,
     );
 
-    await _localNotifications.initialize(
+    await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (details) {
         // Handle notification tap
@@ -36,14 +47,11 @@ class NotificationService {
       },
     );
 
-    // Get FCM token
-    String? token = await _fcm.getToken();
-    if (token != null) {
-      await _saveTokenToDatabase(token);
+    if (Platform.isAndroid) {
+      await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(_forumNotificationChannel);
     }
-
-    // Listen to token refresh
-    _fcm.onTokenRefresh.listen(_saveTokenToDatabase);
 
     // Handle background messages
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -52,9 +60,35 @@ class NotificationService {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _showLocalNotification(message);
     });
+
+    // Handle notification taps when app is resumed or launched from terminated state
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _handleNotificationTapFromMessage(message);
+    });
+
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      _handleNotificationTapFromMessage(initialMessage);
+    }
+
+    // Get FCM token
+    String? token = await _fcm.getToken();
+    await _saveTokenToDatabase(token);
+
+    // Save token after sign-in if auth happens after app start
+    FirebaseAuth.instance.authStateChanges().listen((user) async {
+      if (user != null) {
+        final currentToken = await _fcm.getToken();
+        await _saveTokenToDatabase(currentToken);
+      }
+    });
+  
+    // Listen to token refresh
+    _fcm.onTokenRefresh.listen(_saveTokenToDatabase);
   }
 
-  Future<void> _saveTokenToDatabase(String token) async {
+  Future<void> _saveTokenToDatabase(String? token) async {
+    if (token == null) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await _firestore.collection('users').doc(user.uid).update({
@@ -64,43 +98,59 @@ class NotificationService {
   }
 
   Future<void> _showLocalNotification(RemoteMessage message) async {
-    const androidDetails = AndroidNotificationDetails(
-      'forum_channel',
-      'Forum Notifications',
-      channelDescription: 'Notifications for forum activities',
+    final androidDetails = AndroidNotificationDetails(
+      _forumNotificationChannel.id,
+      _forumNotificationChannel.name,
+      channelDescription: _forumNotificationChannel.description,
       importance: Importance.high,
       priority: Priority.high,
     );
 
-    const notificationDetails = NotificationDetails(
+    final notificationDetails = NotificationDetails(
       android: androidDetails,
-      iOS: DarwinNotificationDetails(),
+      iOS: const DarwinNotificationDetails(),
     );
 
-    await _localNotifications.show(
-      DateTime.now().millisecond,
+    await flutterLocalNotificationsPlugin.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
       message.notification?.title ?? 'New Notification',
       message.notification?.body,
       notificationDetails,
-      payload: message.data['type'] ?? '',
+      payload: message.data['type'] ?? message.messageId ?? '',
     );
   }
 
   void _handleNotificationTap(NotificationResponse details) {
-    // Handle notification tap based on the payload
     final payload = details.payload;
-    if (payload != null) {
-      switch (payload) {
-        case 'like':
-          // Navigate to the post
-          break;
-        case 'comment':
-          // Navigate to the comments section
-          break;
-        case 'mention':
-          // Navigate to the mention
-          break;
-      }
+    if (payload != null && payload.isNotEmpty) {
+      _routeFromPayload(payload);
+    }
+  }
+
+  void _handleNotificationTapFromMessage(RemoteMessage message) {
+    final payload = message.data['type'] ?? message.messageId ?? '';
+    if (payload.isNotEmpty) {
+      _routeFromPayload(payload);
+    }
+  }
+
+  void _routeFromPayload(String payload) {
+    switch (payload) {
+      case 'like':
+        // Navigate to the post
+        break;
+      case 'comment':
+        // Navigate to the comments section
+        break;
+      case 'mention':
+        // Navigate to the mention
+        break;
+      case 'forum_status':
+        // Navigate to forum status page or notification center
+        break;
+      default:
+        // Unknown payload type
+        break;
     }
   }
 
@@ -126,20 +176,24 @@ class NotificationService {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Show local notification
-      await _localNotifications.show(
-        DateTime.now().millisecond,
+      // Show local notification for current session
+      final androidDetails = AndroidNotificationDetails(
+        _forumNotificationChannel.id,
+        _forumNotificationChannel.name,
+        channelDescription: _forumNotificationChannel.description,
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+
+      await flutterLocalNotificationsPlugin.show(
+        DateTime.now().millisecondsSinceEpoch.remainder(100000),
         'Forum Status Update',
         message,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'forum_status',
-            'Forum Status Updates',
-            importance: Importance.high,
-            priority: Priority.high,
-          ),
-          iOS: DarwinNotificationDetails(),
+        NotificationDetails(
+          android: androidDetails,
+          iOS: const DarwinNotificationDetails(),
         ),
+        payload: 'forum_status',
       );
     } catch (e) {
       print('Error sending forum status notification: $e');
@@ -180,8 +234,37 @@ class NotificationService {
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Handle background messages here
-  print('Handling a background message: ${message.messageId}');
+  const initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+  if (Platform.isAndroid) {
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_forumNotificationChannel);
+  }
+
+  final androidDetails = AndroidNotificationDetails(
+    _forumNotificationChannel.id,
+    _forumNotificationChannel.name,
+    channelDescription: _forumNotificationChannel.description,
+    importance: Importance.high,
+    priority: Priority.high,
+  );
+
+  final notificationDetails = NotificationDetails(
+    android: androidDetails,
+    iOS: const DarwinNotificationDetails(),
+  );
+
+  await flutterLocalNotificationsPlugin.show(
+    DateTime.now().millisecondsSinceEpoch.remainder(100000),
+    message.notification?.title ?? 'New Notification',
+    message.notification?.body,
+    notificationDetails,
+    payload: message.data['type'] ?? message.messageId ?? '',
+  );
 }
 
 

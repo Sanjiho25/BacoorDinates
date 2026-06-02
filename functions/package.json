@@ -1,0 +1,12 @@
+{
+  "name": "bacoor-dinates-functions",
+  "description": "Firebase Cloud Functions for BacoorDinates push notifications",
+  "private": true,
+  "engines": {
+    "node": "18"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.0.1",
+    "firebase-functions": "^4.4.0"
+  }
+}

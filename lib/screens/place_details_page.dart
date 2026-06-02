@@ -187,6 +187,7 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
                               Text(
                                 text,
                                 style: Theme.of(context).textTheme.bodyMedium,
+                                textAlign: TextAlign.justify,
                                 maxLines: _expanded ? null : 4,
                                 overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
                               ),
