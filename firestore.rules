@@ -1,0 +1,179 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 🔥 USERS COLLECTION
+    match /users/{userId} {
+      // Allow username queries for mention functionality
+      allow list: if request.auth != null;  // Allow authenticated users to search for any username
+
+      // Users can read their own data
+      allow get: if request.auth != null && request.auth.uid == userId;
+
+      // Admins can read all users
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+
+      // Users can write their own data
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 🔥 FORUMS COLLECTION (Fix Duplicate Rule)
+    match /forums/{forumId} {
+      // Allow all users to read only "Approved" forums
+      allow read: if resource.data.status == "Approved" || 
+                  (request.auth != null && 
+                   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin");
+
+      // Allow all authenticated users to create forums
+      allow create: if request.auth != null;
+      
+      // Allow authenticated users to update upvotes and likedBy fields for like/unlike
+      allow update: if request.auth != null && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvotes', 'likedBy']);
+			
+      allow update: if request.auth != null && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments']);
+      
+      // Allow users to update their own posts (content field only)
+      allow update: if request.auth != null && 
+                    resource.data.authorId == request.auth.uid &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content']);
+      
+      // Allow users to delete their own posts
+      allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+
+      // Only admins can update or delete forums (other fields)
+      allow update, delete: if request.auth != null && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+      
+      match /comments/{commentId} {
+        allow read: if true;
+
+        // Allow authenticated users to create comments with proper fields
+        allow create: if request.auth != null ;
+
+        // Allow users to delete/update their own comments
+        allow update, delete: if request.auth != null && 
+          resource.data.authorId == request.auth.uid;
+      }
+    }
+    
+    // 🔥 PLACES COLLECTION (For Dashboard)
+    match /places/{placeId} {
+  allow read: if request.auth != null;  // Allow all authenticated users to read
+
+  // Allow Admins full access (create, update, delete)
+  allow write, update, delete: if request.auth != null && 
+    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+
+  // Allow users to update only 'likes' and 'likedBy' fields safely
+  allow update: if request.auth != null &&
+    request.resource.data.diff(resource.data).affectedKeys().hasOnly(["likes", "likedBy"]) &&
+    request.resource.data.likes is int &&
+    request.resource.data.likedBy is list &&
+    request.resource.data.likedBy.size() == 0 || 
+		request.resource.data.likedBy[0] is string &&
+    (
+      request.resource.data.likes == resource.data.likes + 1 || 
+      request.resource.data.likes == resource.data.likes - 1
+    );
+}
+
+
+    // POSTS COLLECTION (For Dashboard Metrics)
+    match /posts/{postId} {
+      // Anyone can read "Approved" posts
+      allow read: if resource.data.status == "Approved" || 
+                  (request.auth != null && 
+                   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin");
+
+      // Users can create posts
+      allow create: if request.auth != null;
+
+      // Users can update only their own posts *IF* they are in "For Review" status
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId &&
+        resource.data.status == "For Review";
+
+      // Only Admins can approve or reject posts
+      allow update: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin" &&
+        request.resource.data.keys().hasAny(["status"]);
+
+      // Only Admins can delete posts
+      allow delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+    }
+    match /ar_objects/{arObject} {
+      allow read: if true;  // Anyone can read AR objects
+      allow create: if request.auth != null;
+      
+      allow write, update, delete: if request.auth != null && 
+    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+      
+    }
+    
+    match /itineraries/{itineraryId} {
+
+        // Allow read/update/delete only if user owns the itinerary
+        allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+
+        // Allow create only if user is authenticated and submitting valid structure
+        allow create: if request.auth != null
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.places is list
+          && request.resource.data.isPublic is bool;
+          
+        match /activities/{activityId} {
+        allow read, update, delete: if request.auth != null && request.auth.uid == get(/databases/$(database)/documents/itineraries/$(itineraryId)).data.userId;
+
+        allow create: if request.auth != null
+          && get(/databases/$(database)/documents/itineraries/$(itineraryId)).data.userId == request.auth.uid
+          && request.resource.data.title is string
+          && request.resource.data.description is string
+          && request.resource.data.location is string
+          && request.resource.data.datetime is timestamp
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.isBooked is bool;
+      	}
+      }
+      match /notifications/{notificationId} {
+      // Allow users to read their own notifications
+      allow read: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+
+      // Allow admins to read all notifications
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+
+      // Allow creation of notifications by authenticated users
+      allow create: if request.auth != null && 
+        request.resource.data.userId is string &&
+        request.resource.data.title is string &&
+        request.resource.data.body is string &&
+        request.resource.data.type is string &&
+        request.resource.data.read is bool &&
+        request.resource.data.createdAt is timestamp;
+
+      // Allow users to update only the 'read' status of their own notifications
+      allow update: if request.auth != null && 
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+
+      // Allow admins full update access
+      allow update: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+
+      // Allow users to delete their own notifications
+      allow delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+
+      // Allow admins to delete any notification
+      allow delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+    }
+  }
+}

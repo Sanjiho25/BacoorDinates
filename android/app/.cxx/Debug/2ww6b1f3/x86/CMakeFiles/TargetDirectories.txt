@@ -1,0 +1,2 @@
+C:/Users/jelix/Desktop/bacoordinates-bf6081ca8df402701d414a19313275eeb85979b0/bacoordinates-bf6081ca8df402701d414a19313275eeb85979b0/android/app/.cxx/Debug/2ww6b1f3/x86/CMakeFiles/edit_cache.dir
+C:/Users/jelix/Desktop/bacoordinates-bf6081ca8df402701d414a19313275eeb85979b0/bacoordinates-bf6081ca8df402701d414a19313275eeb85979b0/android/app/.cxx/Debug/2ww6b1f3/x86/CMakeFiles/rebuild_cache.dir
