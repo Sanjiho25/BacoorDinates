@@ -323,12 +323,12 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
                         message: 'Your current location',
                         child: Container(
                           decoration: BoxDecoration(
-                            color: colorScheme.primary.withOpacity(0.1),
+                            color: colorScheme.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(27.5),
-                            border: Border.all(color: colorScheme.primary.withOpacity(0.3)),
+                            border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
                             boxShadow: [
                               BoxShadow(
-                                color: colorScheme.primary.withOpacity(0.2),
+                                color: colorScheme.primary.withValues(alpha: 0.2),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),
@@ -350,12 +350,12 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
                         message: 'Destination: ${widget.placeTitle}',
                         child: Container(
                           decoration: BoxDecoration(
-                            color: colorScheme.error.withOpacity(0.1),
+                            color: colorScheme.error.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(27.5),
-                            border: Border.all(color: colorScheme.error.withOpacity(0.3)),
+                            border: Border.all(color: colorScheme.error.withValues(alpha: 0.3)),
                             boxShadow: [
                               BoxShadow(
-                                color: colorScheme.error.withOpacity(0.2),
+                                color: colorScheme.error.withValues(alpha: 0.2),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),
@@ -375,9 +375,9 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
                 PolylineLayer(
                   polylines: [
                     Polyline(
-                      points: routePoints,                    color: const Color(0xFF4080FF).withOpacity(0.8),
+                      points: routePoints,                    color: const Color(0xFF4080FF).withValues(alpha: 0.8),
                       strokeWidth: 5,
-                      borderColor: Colors.white.withOpacity(0.5),
+                      borderColor: Colors.white.withValues(alpha: 0.5),
                       borderStrokeWidth: 7,
                     ),
                   ],
@@ -386,7 +386,7 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
           ),
           if (_isLoading)
             Container(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                 child: Center(
@@ -397,7 +397,7 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
+                          color: Colors.black.withValues(alpha: 0.15),
                           blurRadius: 15,
                           spreadRadius: 2,
                         ),
@@ -440,7 +440,7 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -478,12 +478,12 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   decoration: BoxDecoration(
-                    color: colorScheme.surface.withOpacity(0.95),
+                    color: colorScheme.surface.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: colorScheme.primary.withOpacity(0.1)),
+                    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.1)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                         blurRadius: 15,
                         offset: const Offset(0, 5),
                       ),
@@ -501,7 +501,7 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
                       Container(
                         height: 30,
                         width: 1,
-                        color: colorScheme.outline.withOpacity(0.2),
+                        color: colorScheme.outline.withValues(alpha: 0.2),
                       ),
                       _buildInfoRow(
                         context,
@@ -523,11 +523,11 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: colorScheme.surface.withOpacity(0.9),
+                    color: colorScheme.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(25),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                         blurRadius: 10,
                         spreadRadius: 1,
                       ),
@@ -548,7 +548,7 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
                           ),
                         ),
                       ),
-                      Container(height: 1, color: colorScheme.outline.withOpacity(0.1)),
+                      Container(height: 1, color: colorScheme.outline.withValues(alpha: 0.1)),
                       ClipRRect(
                         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(25)),
                         child: MaterialButton(
@@ -603,7 +603,7 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: colorScheme.primary.withOpacity(0.1),
+            color: colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -618,7 +618,7 @@ class _ExploreMapPageState extends State<ExploreMapPage> with SingleTickerProvid
             Text(
               label,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.6),
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             Text(

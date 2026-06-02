@@ -176,7 +176,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: notification['read'] == false
-              ? (isDarkMode ? Colors.blue.withOpacity(0.1) : Colors.blue.withOpacity(0.05))
+              ? (isDarkMode ? Colors.blue.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.05))
               : null,
           border: Border(
             bottom: BorderSide(
@@ -191,7 +191,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(

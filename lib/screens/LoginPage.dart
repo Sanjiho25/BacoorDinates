@@ -47,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            backgroundColor: Colors.white.withOpacity(0.95),
+            backgroundColor: Colors.white.withValues(alpha: 0.95),
             title: Text(
               AppLocalizations.of(context).translate('email_not_verified'),
               style: const TextStyle(

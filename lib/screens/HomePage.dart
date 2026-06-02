@@ -81,7 +81,7 @@ class _HomePageState extends State<HomePage> {
             width: 55,
             height: 55,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(15),
             ),
             child: Icon(

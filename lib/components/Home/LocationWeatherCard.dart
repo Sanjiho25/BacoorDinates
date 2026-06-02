@@ -22,7 +22,7 @@ class LocationWeatherCard extends StatelessWidget {
     final gradient = LinearGradient(
       colors: isDarkMode
           ? [const Color(0xFF3D3F4B), const Color(0xFF2C2E39)]
-          : [const Color(0xFF4080FF), const Color(0xFF4080FF).withOpacity(0.8)],
+          : [const Color(0xFF4080FF), const Color(0xFF4080FF).withValues(alpha: 0.8)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -34,7 +34,7 @@ class LocationWeatherCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: isDarkMode ? Colors.black.withOpacity(0.4) : Colors.blue.withOpacity(0.3),
+            color: isDarkMode ? Colors.black.withValues(alpha: 0.4) : Colors.blue.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -53,7 +53,7 @@ class LocationWeatherCard extends StatelessWidget {
                     AppLocalizations.of(context).translate('weather_in'),
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.white.withOpacity(0.85),
+                      color: Colors.white.withValues(alpha: 0.85),
                       fontStyle: FontStyle.italic,
                     ),
                   ),

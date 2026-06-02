@@ -399,7 +399,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 backgroundImage: comment['authorAvatar'] != null
                     ? NetworkImage(comment['authorAvatar'])
                     : null,
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                 child: comment['authorAvatar'] == null
                     ? Text(
                   comment['authorName']?.toString().isNotEmpty == true
@@ -433,7 +433,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withOpacity(0.1),
+                              color: theme.colorScheme.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -699,7 +699,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                 backgroundImage: widget.post['authorAvatar'] != null
                                     ? NetworkImage(widget.post['authorAvatar'])
                                     : null,
-                                backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                                 child: widget.post['authorAvatar'] == null
                                     ? Text(
                                   widget.post['authorName']?.toString().isNotEmpty == true
@@ -733,7 +733,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: theme.colorScheme.primary.withOpacity(0.1),
+                                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(

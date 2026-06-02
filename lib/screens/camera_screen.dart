@@ -5,6 +5,7 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:math';
 
+import '../services/eleven_labs_tts_service.dart';
 import 'package:untitled/l10n/app_localizations.dart';
 
 class ARViewerScreen extends StatefulWidget {
@@ -54,6 +55,7 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
     if (text.isEmpty) return;
 
     if (isSpeaking) {
+      await ElevenLabsTtsService.instance.stop();
       await flutterTts.stop();
       setState(() {
         isSpeaking = false;
@@ -64,6 +66,14 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
     setState(() {
       isSpeaking = true;
     });
+
+    final elevenSuccess = await ElevenLabsTtsService.instance.speak(text);
+    if (elevenSuccess) {
+      setState(() {
+        isSpeaking = false;
+      });
+      return;
+    }
 
     // Slow down place description narration and add short pauses.
     await flutterTts.setSpeechRate(0.32);
@@ -121,18 +131,20 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Align(
           alignment: Alignment.centerLeft,
           child: Text(
-        AppLocalizations.of(context).translate('nearby_ar_objects'),
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: isDarkMode ? Colors.white : Theme.of(context).colorScheme.primary,
-        ),
+            AppLocalizations.of(context).translate('nearby_ar_objects'),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isDarkMode
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         backgroundColor: theme.appBarTheme.backgroundColor,
@@ -159,9 +171,10 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
               child: _nearbyARObjects.isEmpty
                   ? Center(
                       child: Text(
-                        AppLocalizations.of(context).translate('no_nearby_ar_objects'),
+                        AppLocalizations.of(context)
+                            .translate('no_nearby_ar_objects'),
                         style: TextStyle(
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
                     )
@@ -176,10 +189,12 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
                           onTap: () => _selectARObject(doc),
                           child: Container(
                             width: 160,
-                            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 16),
                             decoration: BoxDecoration(
                               color: _selectedARObject?.id == doc.id
-                                  ? theme.colorScheme.secondary.withOpacity(0.15)
+                                  ? theme.colorScheme.secondary
+                                      .withValues(alpha: 0.15)
                                   : theme.cardColor,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
@@ -190,7 +205,7 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),
@@ -206,7 +221,8 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
                                     size: 40,
                                     color: _selectedARObject?.id == doc.id
                                         ? const Color(0xFF4080FF)
-                                        : theme.colorScheme.onSurface.withOpacity(0.7),
+                                        : theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.7),
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
@@ -239,11 +255,16 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(16),
                               child: ModelViewer(
-                                key: ValueKey(_selectedARObject?.id), // Add key to force rebuild
+                                key: ValueKey(_selectedARObject
+                                    ?.id), // Add key to force rebuild
                                 src: _selectedARObject!['file_url'] ?? '',
                                 alt: _selectedARObject!['title'] ?? '3D model',
                                 ar: true,
-                                arModes: const ['scene-viewer', 'webxr', 'quick-look'],
+                                arModes: const [
+                                  'scene-viewer',
+                                  'webxr',
+                                  'quick-look'
+                                ],
                                 autoRotate: true,
                                 cameraControls: true,
                                 backgroundColor: theme.scaffoldBackgroundColor,
@@ -259,16 +280,21 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 ElevatedButton.icon(
-                                  onPressed: () => _speak(_selectedARObject!['description'] ?? ''),
-                                  icon: Icon(isSpeaking ? Icons.stop : Icons.volume_up),
-                                  label: Text(isSpeaking 
-                                    ? AppLocalizations.of(context).translate('stop_speaking')
-                                    : AppLocalizations.of(context).translate('speak_description')
-                                  ),
+                                  onPressed: () => _speak(
+                                      _selectedARObject!['description'] ?? ''),
+                                  icon: Icon(isSpeaking
+                                      ? Icons.stop
+                                      : Icons.volume_up),
+                                  label: Text(isSpeaking
+                                      ? AppLocalizations.of(context)
+                                          .translate('stop_speaking')
+                                      : AppLocalizations.of(context)
+                                          .translate('speak_description')),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFFFFD700),
                                     foregroundColor: Colors.black87,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
                                   ),
                                 ),
                                 const SizedBox(height: 16),
@@ -279,9 +305,10 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
                     )
                   : Center(
                       child: Text(
-                        AppLocalizations.of(context).translate('select_ar_object_to_view'),
+                        AppLocalizations.of(context)
+                            .translate('select_ar_object_to_view'),
                         style: TextStyle(
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
                     ),

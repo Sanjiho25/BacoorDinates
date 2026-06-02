@@ -171,7 +171,7 @@ class ItineraryDetailPage extends StatelessWidget {
                                 end: Alignment.bottomCenter,
                                 colors: [
                                   Colors.transparent,
-                                  Colors.black.withOpacity(0.6),
+                                  Colors.black.withValues(alpha: 0.6),
                                 ],
                               ),
                             ),
@@ -332,7 +332,7 @@ class ItineraryDetailPage extends StatelessWidget {
                                                                         color: Theme.of(context).cardColor,
                                                                         boxShadow: [
                                                                           BoxShadow(
-                                                                            color: Colors.black.withOpacity(0.05),
+                                                                            color: Colors.black.withValues(alpha: 0.05),
                                                                             blurRadius: 5,
                                                                           )
                                                                         ],

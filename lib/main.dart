@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -21,9 +22,23 @@ import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+
+  try {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } else {
+      // Web/desktop Firebase configuration is not set up in firebase_options.dart.
+      // Skip initialization here until those platforms are configured.
+      debugPrint('Skipping Firebase initialization on unsupported platform: '
+          '${kIsWeb ? 'web' : defaultTargetPlatform}');
+    }
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
+  }
 
   // Initialize notification service
   final notificationService = NotificationService();

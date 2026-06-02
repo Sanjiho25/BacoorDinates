@@ -32,7 +32,7 @@ class ProfilePage extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 50,
-          backgroundColor: isDarkMode ? Colors.grey[800] : const Color(0xFF4080FF).withOpacity(0.1),
+          backgroundColor: isDarkMode ? Colors.grey[800] : const Color(0xFF4080FF).withValues(alpha: 0.1),
           backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
           child: photoUrl.isEmpty
               ? Text(
@@ -326,7 +326,7 @@ class ProfilePage extends StatelessWidget {
         color: isDarkMode ? const Color(0xFF3D3F4B) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, 3),
@@ -367,7 +367,7 @@ class ProfilePage extends StatelessWidget {
                 title: Text(dialogLocalizations.translate('light_mode')),
                 leading: const Icon(Icons.light_mode),
                 selected: !isDarkMode,
-                selectedTileColor: Colors.blue.withOpacity(0.1),
+                selectedTileColor: Colors.blue.withValues(alpha: 0.1),
                 onTap: () {
                   if (isDarkMode) {
                     context.read<ThemeProvider>().toggleTheme();
@@ -379,7 +379,7 @@ class ProfilePage extends StatelessWidget {
                 title: Text(dialogLocalizations.translate('dark_mode')),
                 leading: const Icon(Icons.dark_mode),
                 selected: isDarkMode,
-                selectedTileColor: const Color(0xFF3D3F4B).withOpacity(0.3),
+                selectedTileColor: const Color(0xFF3D3F4B).withValues(alpha: 0.3),
                 onTap: () {
                   if (!isDarkMode) {
                     context.read<ThemeProvider>().toggleTheme();

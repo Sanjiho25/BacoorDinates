@@ -395,7 +395,7 @@ class _ForumPageState extends State<ForumPage> {
                   decoration: InputDecoration(
                     hintText: 'Search posts...',
                     hintStyle: TextStyle(
-                      color: isDarkMode ? Colors.white70 : Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                      color: isDarkMode ? Colors.white70 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
                     ),
                     border: InputBorder.none,
                   ),

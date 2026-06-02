@@ -35,7 +35,7 @@ class CustomNavbar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(BuildContext context, IconData icon, String label, int index) {
+  Widget _buildNavItem(BuildContext context, dynamic icon, String label, int index) {
     final isDarkMode = context.watch<ThemeProvider>().isDarkMode;
     final accentColor = selectedIndex == index
         ? const Color(0xFFFFB300)

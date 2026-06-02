@@ -72,9 +72,9 @@ class ThemeProvider with ChangeNotifier {
           }),
           trackColor: WidgetStateProperty.resolveWith<Color>((states) {
             if (states.contains(WidgetState.selected)) {
-              return const Color(0xFFFFB74D).withOpacity(0.5);
+              return const Color(0xFFFFB74D).withValues(alpha: 0.5);
             }
-            return Colors.grey.withOpacity(0.3);
+            return Colors.grey.withValues(alpha: 0.3);
           }),
         ),
         listTileTheme: const ListTileThemeData(

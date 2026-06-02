@@ -1,19 +1,21 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:provider/provider.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:untitled/l10n/app_localizations.dart';
 import 'package:untitled/providers/theme_provider.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
+import '../services/eleven_labs_tts_service.dart';
+import '../services/eleven_labs_stt_service.dart';
 import 'package:untitled/components/DarkModeToggle.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
-
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 
 class TranslatorPage extends StatefulWidget {
   const TranslatorPage({super.key});
@@ -30,9 +32,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
   bool _isLoading = false;
   bool _isListening = false;
   final FlutterTts flutterTts = FlutterTts();
+  final AudioRecorder _recorder = AudioRecorder();
   String _errorMessage = '';
-  late stt.SpeechToText _speech;
-
 
   final Map<String, String> _languageCodes = {
     'English': 'en-US',
@@ -62,7 +63,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
       return DropdownMenuItem<String>(
         value: item,
         child: SizedBox(
-          width: 100,  // Fixed width for the item content
+          width: 100, // Fixed width for the item content
           child: Text(
             item,
             style: const TextStyle(fontSize: 13),
@@ -90,26 +91,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
   void initState() {
     super.initState();
     _initTts();
-    _speech = stt.SpeechToText();
-    _initSpeech();
   }
-
-  Future<void> _initSpeech() async {
-    try {
-      var status = await _checkMicPermission();
-      if (status) {
-        // Initialize speech recognition
-        bool available = await _speech.initialize(
-          onError: (error) => print('Speech initialization error: $error'),
-        );
-        print('Speech recognition available: $available');
-      }
-    } catch (e) {
-      print('Speech initialization error: $e');
-    }
-  }
-
-  // Removed as initialization is now handled in _toggleListening
 
   Future<void> _initTts() async {
     await flutterTts.setLanguage("en-US");
@@ -208,18 +190,21 @@ class _TranslatorPageState extends State<TranslatorPage> {
       if (!_errorMessage.contains("MissingPluginException")) {
         final modelManager = OnDeviceTranslatorModelManager();
 
-        bool isSourceModelDownloaded = await modelManager.isModelDownloaded(sourceLang.bcpCode);
+        bool isSourceModelDownloaded =
+            await modelManager.isModelDownloaded(sourceLang.bcpCode);
         if (!isSourceModelDownloaded) {
           await modelManager.downloadModel(sourceLang.bcpCode);
         }
 
-        bool isTargetModelDownloaded = await modelManager.isModelDownloaded(targetLang.bcpCode);
+        bool isTargetModelDownloaded =
+            await modelManager.isModelDownloaded(targetLang.bcpCode);
         if (!isTargetModelDownloaded) {
           await modelManager.downloadModel(targetLang.bcpCode);
         }
       }
 
-      final translatedText = await translator.translateText(_textController.text);
+      final translatedText =
+          await translator.translateText(_textController.text);
 
       setState(() {
         _translatedText = translatedText;
@@ -243,7 +228,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
     final text = _textController.text.trim();
 
     // Use LibreTranslate API as fallback
-    final url = Uri.parse('https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sourceLanguage&tl=$targetLanguage&dt=t&q=${Uri.encodeComponent(text)}');
+    final url = Uri.parse(
+        'https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sourceLanguage&tl=$targetLanguage&dt=t&q=${Uri.encodeComponent(text)}');
 
     try {
       final response = await http.get(url);
@@ -265,7 +251,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
           throw Exception("Invalid response format");
         }
       } else {
-        throw Exception("API request failed with status: ${response.statusCode}");
+        throw Exception(
+            "API request failed with status: ${response.statusCode}");
       }
     } catch (e) {
       throw Exception("Fallback translation failed: ${e.toString()}");
@@ -275,9 +262,13 @@ class _TranslatorPageState extends State<TranslatorPage> {
   Future<void> _speak(String text) async {
     if (text.isEmpty) return;
 
+    final elevenSuccess = await ElevenLabsTtsService.instance.speak(text);
+    if (elevenSuccess) return;
+
     try {
       // Set the language based on the target language
-      final languageCode = _ttsLanguageCodes[_selectedTargetLanguage] ?? 'en-US';
+      final languageCode =
+          _ttsLanguageCodes[_selectedTargetLanguage] ?? 'en-US';
       await flutterTts.setLanguage(languageCode);
 
       // Try to set a natural, human-like voice based on language
@@ -290,14 +281,16 @@ class _TranslatorPageState extends State<TranslatorPage> {
             String voiceName = voiceMap['name'] ?? '';
             String voiceLocale = voiceMap['locale'] ?? '';
 
-            bool matchesLanguage = voiceLocale.toLowerCase().contains(languageCode.split('-')[0].toLowerCase());
+            bool matchesLanguage = voiceLocale
+                .toLowerCase()
+                .contains(languageCode.split('-')[0].toLowerCase());
 
             // Look for voices marked as female, enhanced quality or neural
             bool isHighQuality = voiceName.toLowerCase().contains('female') ||
-                          voiceName.toLowerCase().contains('neural') ||
-                          voiceName.toLowerCase().contains('enhanced') ||
-                          voiceName.toLowerCase().contains('natural') ||
-                          voiceName.toLowerCase().contains('wavenet');
+                voiceName.toLowerCase().contains('neural') ||
+                voiceName.toLowerCase().contains('enhanced') ||
+                voiceName.toLowerCase().contains('natural') ||
+                voiceName.toLowerCase().contains('wavenet');
 
             return matchesLanguage && isHighQuality;
           } catch (e) {
@@ -309,10 +302,11 @@ class _TranslatorPageState extends State<TranslatorPage> {
         if (highQualityVoices.isNotEmpty) {
           Map<String, dynamic> selectedVoice = highQualityVoices.first;
           String voiceName = selectedVoice['name'];
-          await flutterTts.setVoice({"name": voiceName, "locale": languageCode});
+          await flutterTts
+              .setVoice({"name": voiceName, "locale": languageCode});
           print("Using human-like voice: $voiceName");
         }
-            } catch (e) {
+      } catch (e) {
         print("Error setting voice: $e");
       }
 
@@ -320,34 +314,36 @@ class _TranslatorPageState extends State<TranslatorPage> {
       switch (_selectedTargetLanguage) {
         case 'Chinese':
         case 'Taiwanese':
-          await flutterTts.setSpeechRate(0.38);  // Slower for more natural Chinese
-          await flutterTts.setPitch(1.03);       // Slightly higher pitch
-          await flutterTts.setVolume(0.9);       // Slightly softer for natural sound
+          await flutterTts
+              .setSpeechRate(0.38); // Slower for more natural Chinese
+          await flutterTts.setPitch(1.03); // Slightly higher pitch
+          await flutterTts.setVolume(0.9); // Slightly softer for natural sound
           break;
         case 'Japanese':
-          await flutterTts.setSpeechRate(0.40);  // Moderate pace for Japanese
-          await flutterTts.setPitch(1.08);       // Higher pitch common in Japanese
-          await flutterTts.setVolume(0.95);      // Medium volume
+          await flutterTts.setSpeechRate(0.40); // Moderate pace for Japanese
+          await flutterTts.setPitch(1.08); // Higher pitch common in Japanese
+          await flutterTts.setVolume(0.95); // Medium volume
           break;
         case 'Korean':
-          await flutterTts.setSpeechRate(0.42);  // Slightly faster for Korean
-          await flutterTts.setPitch(1.06);       // Moderate pitch increase
-          await flutterTts.setVolume(0.92);      // Medium volume
+          await flutterTts.setSpeechRate(0.42); // Slightly faster for Korean
+          await flutterTts.setPitch(1.06); // Moderate pitch increase
+          await flutterTts.setVolume(0.92); // Medium volume
           break;
         case 'Filipino':
-          await flutterTts.setSpeechRate(0.45);  // Slightly faster for Filipino
-          await flutterTts.setPitch(1.04);       // Moderate pitch
-          await flutterTts.setVolume(0.93);      // Medium volume
+          await flutterTts.setSpeechRate(0.35); // Slower pace for Filipino
+          await flutterTts.setPitch(1.04); // Moderate pitch
+          await flutterTts.setVolume(0.93); // Medium volume
           break;
         case 'English':
-          await flutterTts.setSpeechRate(0.42);  // Conversation pace
-          await flutterTts.setPitch(1.0);        // Natural pitch
-          await flutterTts.setVolume(0.90);      // Medium volume
+          await flutterTts
+              .setSpeechRate(0.38); // Slightly slower conversation pace
+          await flutterTts.setPitch(1.0); // Natural pitch
+          await flutterTts.setVolume(0.90); // Medium volume
           break;
         default:
-          await flutterTts.setSpeechRate(0.43);  // Default human conversation pace
-          await flutterTts.setPitch(1.02);       // Slight pitch variation
-          await flutterTts.setVolume(0.92);      // Medium volume
+          await flutterTts.setSpeechRate(0.40); // Slightly slower default pace
+          await flutterTts.setPitch(1.02); // Slight pitch variation
+          await flutterTts.setVolume(0.92); // Medium volume
       }
 
       // Process text to add natural speech patterns
@@ -360,11 +356,10 @@ class _TranslatorPageState extends State<TranslatorPage> {
       processedText = processedText.replaceAll(', ', ', <silence ms="150"/>');
 
       // Add human-like voice quality
-      await flutterTts.setQueueMode(1);  // Add to queue instead of cutting off
+      await flutterTts.setQueueMode(1); // Add to queue instead of cutting off
 
       // Speak with enhanced quality
       await flutterTts.speak(processedText);
-
     } catch (e) {
       print('TTS Error: $e');
       // Fallback to default language if the selected one isn't available
@@ -374,94 +369,94 @@ class _TranslatorPageState extends State<TranslatorPage> {
       await flutterTts.speak(text);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Human-like voice for $_selectedTargetLanguage not available. Using standard voice instead.')),
+        SnackBar(
+            content: Text(
+                'Human-like voice for $_selectedTargetLanguage not available. Using standard voice instead.')),
       );
     }
   }
 
   void _toggleListening() async {
     if (_isListening) {
-      _speech.stop();
-      setState(() => _isListening = false);
-    } else {
       try {
-        final permissionGranted = await _checkMicPermission();
-        if (!permissionGranted) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Microphone permission is required')),
-            );
-          }
-          return;
-        }
-
-        final available = await _speech.initialize(
-          onStatus: (status) {
-            print('Speech status: $status');
-            if (status == 'done' || status == 'notListening') {
-              setState(() => _isListening = false);
-            }
-          },
-          onError: (error) {
-            print('Speech error: $error');
-            setState(() => _isListening = false);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Error: ${error.errorMsg}')),
-              );
-            }
-          },
-        );
-
-        if (!available) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Speech recognition not available')),
-            );
-          }
-          return;
-        }
-
-        setState(() => _isListening = true);
-        
-        await _speech.listen(
-          onResult: (result) {
-            setState(() {
-              _textController.text = result.recognizedWords;
-              if (result.finalResult && result.recognizedWords.isNotEmpty) {
-                _isListening = false;
-                
-                if (mounted) {
-                  // Show a snackbar to indicate recognition is complete
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Speech recognized, translating...'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                  
-                  // Slight delay to ensure UI is updated before translation starts
-                  Future.delayed(const Duration(milliseconds: 500), () {
-                    if (mounted) {
-                      _translate();
-                    }
-                  });
-                }
-              }
-            });
-          },
-          localeId: _languageCodes[_selectedSourceLanguage],
-          cancelOnError: true,
-          listenMode: stt.ListenMode.confirmation,
-        );
-      } catch (e) {
-        print('Error toggling speech recognition: $e');
+        // Stop the recorder and get the recorded file path
+        final filePath = await _recorder.stop();
         setState(() => _isListening = false);
+
+        if (filePath != null && filePath.isNotEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Processing speech with ElevenLabs...'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+
+          final transcript = await ElevenLabsSttService.instance.transcribe(
+            File(filePath),
+            _languageCodes[_selectedSourceLanguage] ?? 'en-US',
+          );
+
+          if (transcript != null && transcript.isNotEmpty) {
+            setState(() {
+              _textController.text = transcript;
+            });
+            await _translate();
+            return;
+          }
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('ElevenLabs STT failed. Please try again.'),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        print('Error stopping recording: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString()}')),
+            SnackBar(content: Text('Error processing speech: ${e.toString()}')),
           );
         }
+      }
+
+      return;
+    }
+
+    try {
+      final permissionGranted = await _checkMicPermission();
+      if (!permissionGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Microphone permission is required')),
+          );
+        }
+        return;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final path =
+          '${tempDir.path}/elevenlabs_stt_${DateTime.now().millisecondsSinceEpoch}.wav';
+      await _recorder.start(
+  const RecordConfig(
+    encoder: AudioEncoder.wav,
+    bitRate: 128000,
+    sampleRate: 44100,
+  ),
+  path: path,
+);
+
+      setState(() => _isListening = true);
+    } catch (e) {
+      print('Error starting speech recording: $e');
+      setState(() => _isListening = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
       }
     }
   }
@@ -475,25 +470,31 @@ class _TranslatorPageState extends State<TranslatorPage> {
 
   Widget _buildMicButton() {
     final isDarkMode = context.watch<ThemeProvider>().isDarkMode;
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       width: _isListening ? 36 : 32,
       height: _isListening ? 36 : 32,
       decoration: BoxDecoration(
-        color: _isListening 
-            ? (isDarkMode ? const Color(0xFFFFB74D) : Theme.of(context).colorScheme.tertiary)
-            : (isDarkMode ? const Color(0xFF4080FF) : Theme.of(context).colorScheme.primary),
+        color: _isListening
+            ? (isDarkMode
+                ? const Color(0xFFFFB74D)
+                : Theme.of(context).colorScheme.tertiary)
+            : (isDarkMode
+                ? const Color(0xFF4080FF)
+                : Theme.of(context).colorScheme.primary),
         shape: BoxShape.circle,
-        boxShadow: _isListening 
+        boxShadow: _isListening
             ? [
                 BoxShadow(
-                  color: (isDarkMode ? const Color(0xFFFFB74D) : Theme.of(context).colorScheme.tertiary)
-                      .withOpacity(0.4),
+                  color: (isDarkMode
+                          ? const Color(0xFFFFB74D)
+                          : Theme.of(context).colorScheme.tertiary)
+                      .withValues(alpha: 0.4),
                   blurRadius: 12,
                   spreadRadius: 2,
                 ),
-              ] 
+              ]
             : null,
       ),
       child: Material(
@@ -520,7 +521,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
   ElevatedButton _buildTranslateButton() {
     final isDarkMode = context.watch<ThemeProvider>().isDarkMode;
     final theme = Theme.of(context);
-    
+
     return ElevatedButton.icon(
       onPressed: _isLoading ? null : _translate,
       icon: AnimatedSwitcher(
@@ -547,20 +548,20 @@ class _TranslatorPageState extends State<TranslatorPage> {
         ),
         minimumSize: const Size(0, 32),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        disabledBackgroundColor: isDarkMode 
-            ? const Color(0xFF4080FF).withOpacity(0.3) 
-            : Colors.blue.withOpacity(0.3),
+        disabledBackgroundColor: isDarkMode
+            ? const Color(0xFF4080FF).withValues(alpha: 0.3)
+            : Colors.blue.withValues(alpha: 0.3),
       ),
     );
   }
 
   Widget _buildTranslatedResult() {
     final isDarkMode = context.watch<ThemeProvider>().isDarkMode;
-    
+
     if (_translatedText.isEmpty) {
       return const SizedBox();
     }
-    
+
     return Card(
       elevation: isDarkMode ? 1 : 3,
       shape: RoundedRectangleBorder(
@@ -588,8 +589,9 @@ class _TranslatorPageState extends State<TranslatorPage> {
                   children: [
                     IconButton(
                       icon: Icon(
-                        Icons.copy, 
-                        color: isDarkMode ? const Color(0xFF4080FF) : Colors.blue, 
+                        Icons.copy,
+                        color:
+                            isDarkMode ? const Color(0xFF4080FF) : Colors.blue,
                         size: 20,
                       ),
                       onPressed: () => _copyToClipboard(_translatedText),
@@ -602,8 +604,9 @@ class _TranslatorPageState extends State<TranslatorPage> {
                     ),
                     IconButton(
                       icon: Icon(
-                        Icons.volume_up, 
-                        color: isDarkMode ? const Color(0xFF4080FF) : Colors.blue, 
+                        Icons.volume_up,
+                        color:
+                            isDarkMode ? const Color(0xFF4080FF) : Colors.blue,
                         size: 20,
                       ),
                       onPressed: () => _speak(_translatedText),
@@ -620,7 +623,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
             ),
           ),
           Divider(
-            height: 1, 
+            height: 1,
             color: isDarkMode ? const Color(0xFF3D3D3D) : Colors.grey.shade200,
           ),
           Padding(
@@ -629,10 +632,13 @@ class _TranslatorPageState extends State<TranslatorPage> {
               width: double.infinity,
               height: 150,
               decoration: BoxDecoration(
-                color: isDarkMode ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+                color:
+                    isDarkMode ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isDarkMode ? const Color(0xFF3D3D3D) : Colors.grey.shade200,
+                  color: isDarkMode
+                      ? const Color(0xFF3D3D3D)
+                      : Colors.grey.shade200,
                 ),
               ),
               child: SingleChildScrollView(
@@ -642,7 +648,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.4,
-                    color: isDarkMode ? const Color(0xFFE0E0E0) : Colors.black87,
+                    color:
+                        isDarkMode ? const Color(0xFFE0E0E0) : Colors.black87,
                   ),
                 ),
               ),
@@ -655,11 +662,11 @@ class _TranslatorPageState extends State<TranslatorPage> {
 
   Widget _buildErrorMessage() {
     final isDarkMode = context.watch<ThemeProvider>().isDarkMode;
-    
+
     if (_errorMessage.isEmpty) {
       return const SizedBox();
     }
-    
+
     return Card(
       elevation: isDarkMode ? 1 : 3,
       color: isDarkMode ? const Color(0xFF3A2027) : Colors.red.shade50,
@@ -671,8 +678,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
         child: Row(
           children: [
             Icon(
-              Icons.error_outline, 
-              color: isDarkMode ? const Color(0xFFCF6679) : Colors.red.shade700, 
+              Icons.error_outline,
+              color: isDarkMode ? const Color(0xFFCF6679) : Colors.red.shade700,
               size: 24,
             ),
             const SizedBox(width: 12),
@@ -680,7 +687,9 @@ class _TranslatorPageState extends State<TranslatorPage> {
               child: Text(
                 _errorMessage,
                 style: TextStyle(
-                  color: isDarkMode ? const Color(0xFFCF6679) : Colors.red.shade700,
+                  color: isDarkMode
+                      ? const Color(0xFFCF6679)
+                      : Colors.red.shade700,
                 ),
               ),
             ),
@@ -723,7 +732,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
   Widget build(BuildContext context) {
     final isDarkMode = context.watch<ThemeProvider>().isDarkMode;
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
@@ -756,7 +765,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8.0, vertical: 12.0),
                       child: Row(
                         children: [
                           Expanded(
@@ -767,7 +777,9 @@ class _TranslatorPageState extends State<TranslatorPage> {
                                 AppLocalizations.of(context).translate('from'),
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: isDarkMode ? const Color(0xFFB0B0B0) : Colors.blue,
+                                  color: isDarkMode
+                                      ? const Color(0xFFB0B0B0)
+                                      : Colors.blue,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -782,13 +794,18 @@ class _TranslatorPageState extends State<TranslatorPage> {
                               buttonStyleData: ButtonStyleData(
                                 height: 50,
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 10),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: isDarkMode ? const Color(0xFF3D3D3D) : Colors.blue.withOpacity(0.5),
+                                    color: isDarkMode
+                                        ? const Color(0xFF3D3D3D)
+                                        : Colors.blue.withValues(alpha: 0.5),
                                   ),
-                                  color: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
+                                  color: isDarkMode
+                                      ? const Color(0xFF2A2A2A)
+                                      : Colors.white,
                                 ),
                               ),
                               dropdownStyleData: DropdownStyleData(
@@ -796,12 +813,15 @@ class _TranslatorPageState extends State<TranslatorPage> {
                                 width: 150,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(10),
-                                  color: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
+                                  color: isDarkMode
+                                      ? const Color(0xFF2A2A2A)
+                                      : Colors.white,
                                 ),
                                 scrollbarTheme: ScrollbarThemeData(
                                   radius: const Radius.circular(40),
                                   thickness: WidgetStateProperty.all(6),
-                                  thumbVisibility: WidgetStateProperty.all(true),
+                                  thumbVisibility:
+                                      WidgetStateProperty.all(true),
                                 ),
                               ),
                               menuItemStyleData: const MenuItemStyleData(
@@ -811,7 +831,9 @@ class _TranslatorPageState extends State<TranslatorPage> {
                               iconStyleData: IconStyleData(
                                 icon: Icon(
                                   Icons.arrow_drop_down,
-                                  color: isDarkMode ? const Color(0xFF4080FF) : Colors.blue,
+                                  color: isDarkMode
+                                      ? const Color(0xFF4080FF)
+                                      : Colors.blue,
                                 ),
                                 iconSize: 20,
                               ),
@@ -820,15 +842,19 @@ class _TranslatorPageState extends State<TranslatorPage> {
                           const SizedBox(width: 4),
                           Container(
                             decoration: BoxDecoration(
-                              color: isDarkMode ? const Color(0xFFFFB74D) : const Color(0xFFFFB300),
+                              color: isDarkMode
+                                  ? const Color(0xFFFFB74D)
+                                  : const Color(0xFFFFB300),
                               shape: BoxShape.circle,
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.swap_horiz, color: Colors.white, size: 20),
+                              icon: const Icon(Icons.swap_horiz,
+                                  color: Colors.white, size: 20),
                               onPressed: () {
                                 setState(() {
                                   final temp = _selectedSourceLanguage;
-                                  _selectedSourceLanguage = _selectedTargetLanguage;
+                                  _selectedSourceLanguage =
+                                      _selectedTargetLanguage;
                                   _selectedTargetLanguage = temp;
                                 });
                               },
@@ -848,7 +874,9 @@ class _TranslatorPageState extends State<TranslatorPage> {
                                 AppLocalizations.of(context).translate('to'),
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: isDarkMode ? const Color(0xFFB0B0B0) : Colors.blue,
+                                  color: isDarkMode
+                                      ? const Color(0xFFB0B0B0)
+                                      : Colors.blue,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -863,13 +891,18 @@ class _TranslatorPageState extends State<TranslatorPage> {
                               buttonStyleData: ButtonStyleData(
                                 height: 50,
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 10),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: isDarkMode ? const Color(0xFF3D3D3D) : Colors.blue.withOpacity(0.5),
+                                    color: isDarkMode
+                                        ? const Color(0xFF3D3D3D)
+                                        : Colors.blue.withValues(alpha: 0.5),
                                   ),
-                                  color: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
+                                  color: isDarkMode
+                                      ? const Color(0xFF2A2A2A)
+                                      : Colors.white,
                                 ),
                               ),
                               dropdownStyleData: DropdownStyleData(
@@ -877,12 +910,15 @@ class _TranslatorPageState extends State<TranslatorPage> {
                                 width: 150,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(10),
-                                  color: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
+                                  color: isDarkMode
+                                      ? const Color(0xFF2A2A2A)
+                                      : Colors.white,
                                 ),
                                 scrollbarTheme: ScrollbarThemeData(
                                   radius: const Radius.circular(40),
                                   thickness: WidgetStateProperty.all(6),
-                                  thumbVisibility: WidgetStateProperty.all(true),
+                                  thumbVisibility:
+                                      WidgetStateProperty.all(true),
                                 ),
                               ),
                               menuItemStyleData: const MenuItemStyleData(
@@ -892,7 +928,9 @@ class _TranslatorPageState extends State<TranslatorPage> {
                               iconStyleData: IconStyleData(
                                 icon: Icon(
                                   Icons.arrow_drop_down,
-                                  color: isDarkMode ? const Color(0xFF4080FF) : Colors.blue,
+                                  color: isDarkMode
+                                      ? const Color(0xFF4080FF)
+                                      : Colors.blue,
                                 ),
                                 iconSize: 20,
                               ),
@@ -919,11 +957,14 @@ class _TranslatorPageState extends State<TranslatorPage> {
                           Row(
                             children: [
                               Text(
-                                AppLocalizations.of(context).translate('enter_text'),
+                                AppLocalizations.of(context)
+                                    .translate('enter_text'),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: isDarkMode ? const Color(0xFFE0E0E0) : theme.colorScheme.primary,
+                                  color: isDarkMode
+                                      ? const Color(0xFFE0E0E0)
+                                      : theme.colorScheme.primary,
                                 ),
                               ),
                             ],
@@ -934,10 +975,14 @@ class _TranslatorPageState extends State<TranslatorPage> {
                             child: TextField(
                               controller: _textController,
                               decoration: InputDecoration(
-                                hintText: AppLocalizations.of(context).translate('type_or_speak_text_to_translate'),
+                                hintText: AppLocalizations.of(context)
+                                    .translate(
+                                        'type_or_speak_text_to_translate'),
                                 hintStyle: TextStyle(
                                   fontSize: 13,
-                                  color: isDarkMode ? const Color(0xFF909090) : Colors.grey.shade600,
+                                  color: isDarkMode
+                                      ? const Color(0xFF909090)
+                                      : Colors.grey.shade600,
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
@@ -945,23 +990,31 @@ class _TranslatorPageState extends State<TranslatorPage> {
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
                                   borderSide: BorderSide(
-                                    color: isDarkMode ? const Color(0xFF3D3D3D) : Colors.grey.shade300,
+                                    color: isDarkMode
+                                        ? const Color(0xFF3D3D3D)
+                                        : Colors.grey.shade300,
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
                                   borderSide: BorderSide(
-                                    color: isDarkMode ? const Color(0xFF4080FF) : Colors.blue,
+                                    color: isDarkMode
+                                        ? const Color(0xFF4080FF)
+                                        : Colors.blue,
                                   ),
                                 ),
                                 filled: true,
-                                fillColor: isDarkMode ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+                                fillColor: isDarkMode
+                                    ? const Color(0xFF2A2A2A)
+                                    : Colors.grey.shade50,
                                 contentPadding: const EdgeInsets.all(8),
                                 isDense: true,
                               ),
                               style: TextStyle(
                                 fontSize: 13,
-                                color: isDarkMode ? const Color(0xFFE0E0E0) : Colors.black87,
+                                color: isDarkMode
+                                    ? const Color(0xFFE0E0E0)
+                                    : Colors.black87,
                               ),
                               maxLines: 4,
                               minLines: 4,
@@ -982,12 +1035,11 @@ class _TranslatorPageState extends State<TranslatorPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  
+
                   _buildErrorMessage(),
-                  
-                  if (_errorMessage.isNotEmpty) 
-                    const SizedBox(height: 12),
-                  
+
+                  if (_errorMessage.isNotEmpty) const SizedBox(height: 12),
+
                   _buildTranslatedResult(),
                 ],
               ),

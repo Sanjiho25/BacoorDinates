@@ -17,13 +17,13 @@ class EmergencyCallCard extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(
                   width: 2,
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
               child: Icon(
                 Icons.phone_in_talk,
                 size: 30,
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(

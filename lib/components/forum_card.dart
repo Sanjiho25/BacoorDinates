@@ -94,7 +94,7 @@ class ForumCard extends StatelessWidget {
                         ? NetworkImage(post['authorAvatar'])
                         : null,
                     backgroundColor: post['authorAvatar'] == null || post['authorAvatar'].toString().isEmpty
-                        ? theme.colorScheme.primary.withOpacity(0.1)
+                        ? theme.colorScheme.primary.withValues(alpha: 0.1)
                         : null,
                     child: post['authorAvatar'] == null || post['authorAvatar'].toString().isEmpty
                         ? Text(
@@ -148,7 +148,7 @@ class ForumCard extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary.withOpacity(0.1),
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(

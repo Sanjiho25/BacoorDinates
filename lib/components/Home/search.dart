@@ -36,7 +36,7 @@ class Search extends StatelessWidget {
                 color: Color(0xFF4080FF),
               ),
               filled: isDarkMode,
-              fillColor: isDarkMode ? const Color(0xFF3D3F4B).withOpacity(0.7) : null,
+              fillColor: isDarkMode ? const Color(0xFF3D3F4B).withValues(alpha: 0.7) : null,
             ),
           ),
         ),

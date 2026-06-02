@@ -1,7 +1,9 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const textToSpeech = require('@google-cloud/text-to-speech');
 
 admin.initializeApp();
+const ttsClient = new textToSpeech.TextToSpeechClient();
 
 exports.sendPushOnNotificationCreate = functions.firestore
   .document('notifications/{notificationId}')
@@ -65,3 +67,36 @@ exports.sendPushOnNotificationCreate = functions.firestore
 
     return null;
   });
+
+exports.synthesizeTagalog = functions.https.onRequest(async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'Text is required.' });
+    }
+
+    const request = {
+      input: { text },
+      voice: {
+        languageCode: 'tl-PH',
+        name: 'tl-PH-Wavenet-A',
+        ssmlGender: 'FEMALE',
+      },
+      audioConfig: {
+        audioEncoding: 'MP3',
+      },
+    };
+
+    const [response] = await ttsClient.synthesizeSpeech(request);
+    const audioContent = response.audioContent;
+    if (!audioContent) {
+      return res.status(500).json({ error: 'Failed to generate speech.' });
+    }
+
+    const audioBase64 = audioContent.toString('base64');
+    return res.json({ audio: audioBase64 });
+  } catch (error) {
+    console.error('synthesizeTagalog error:', error);
+    return res.status(500).json({ error: 'Text-to-Speech request failed.' });
+  }
+});
