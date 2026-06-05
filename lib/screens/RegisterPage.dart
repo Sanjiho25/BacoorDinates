@@ -23,7 +23,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> registerUser() async {
     final localizations = AppLocalizations.of(context);
-    
+
     if (passwordController.text != confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(localizations.translate('passwords_not_match'))),
@@ -48,6 +48,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
       await userCredential.user!.sendEmailVerification();
 
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(localizations.translate('registration_successful'))),
       );
@@ -57,6 +59,7 @@ class _RegisterPageState extends State<RegisterPage> {
         MaterialPageRoute(builder: (context) => const LoginPage()),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("${localizations.translate('registration_error')}${e.toString()}")),
       );
@@ -66,22 +69,30 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> signInWithGoogle() async {
     final localizations = AppLocalizations.of(context);
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn();
+      // v7: singleton pattern + mandatory initialization
+      final googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.initialize();
 
-      // **Ensure sign-out from previous accounts**
-      await googleSignIn.signOut();  
+      // v7: authenticate() replaces signIn()
+      final GoogleSignInAccount googleUser = await googleSignIn.authenticate();
 
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      if (googleUser == null) return; // User canceled sign-in
+      // v7: idToken is now synchronous on googleUser.authentication
+      final String? idToken = googleUser.authentication.idToken;
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      // v7: accessToken requires explicit scope authorization
+      final GoogleSignInClientAuthorization clientAuth =
+          await googleUser.authorizationClient.authorizeScopes(['email', 'profile']);
+      final String accessToken = clientAuth.accessToken;
+
       final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+        idToken: idToken,
+        accessToken: accessToken,
       );
 
       UserCredential userCredential = await _auth.signInWithCredential(credential);
       User? user = userCredential.user;
+
+      if (!mounted) return;
 
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,12 +101,13 @@ class _RegisterPageState extends State<RegisterPage> {
         return;
       }
 
-      // **Check if user is already registered in Firestore**
       final DocumentSnapshot userDoc =
           await _firestore.collection('users').doc(user.uid).get();
 
+      if (!mounted) return;
+
       if (!userDoc.exists) {
-        // **New user → Save to Firestore and stay on registration page**
+        // New user → save to Firestore
         await _firestore.collection('users').doc(user.uid).set({
           'email': user.email,
           'username': user.displayName ?? '',
@@ -104,6 +116,8 @@ class _RegisterPageState extends State<RegisterPage> {
           'role': 'user',
           'status': 'active',
         });
+
+        if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(localizations.translate('registration_successful'))),
@@ -114,6 +128,7 @@ class _RegisterPageState extends State<RegisterPage> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("${localizations.translate('registration_error')}${e.toString()}")),
       );

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../l10n/app_localizations.dart';
-import 'package:dropdown_button2/dropdown_button2.dart';
 
 class EditTripPage extends StatefulWidget {
   final String itineraryId;
@@ -10,7 +9,7 @@ class EditTripPage extends StatefulWidget {
   const EditTripPage({
     super.key,
     required this.itineraryId,
-    required this.currentData, 
+    required this.currentData,
   });
 
   @override
@@ -31,9 +30,8 @@ class _EditTripPageState extends State<EditTripPage> {
     _titleController = TextEditingController(text: widget.currentData['title'] ?? '');
     _startDate = (widget.currentData['startDate'] as Timestamp?)?.toDate();
     _endDate = (widget.currentData['endDate'] as Timestamp?)?.toDate();
-    _selectedDestination = null; // Initialize as null first
+    _selectedDestination = null;
     _fetchDestinations().then((_) {
-      // Set the selected destination after destinations are loaded
       if (mounted) {
         setState(() {
           final destination = widget.currentData['destination'] as String?;
@@ -95,8 +93,11 @@ class _EditTripPageState extends State<EditTripPage> {
 
   Future<void> _updateTrip() async {
     final localizations = AppLocalizations.of(context);
-    
-    if (_titleController.text.trim().isEmpty || _selectedDestination == null || _startDate == null || _endDate == null) {
+
+    if (_titleController.text.trim().isEmpty ||
+        _selectedDestination == null ||
+        _startDate == null ||
+        _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(localizations.translate('complete_required_fields'))),
       );
@@ -110,12 +111,9 @@ class _EditTripPageState extends State<EditTripPage> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // Fetch the selected place's document from 'places' collection
       final placeSnapshot = await FirebaseFirestore.instance
           .collection('places')
           .where('title', isEqualTo: _selectedDestination)
@@ -127,7 +125,10 @@ class _EditTripPageState extends State<EditTripPage> {
         imageUrl = placeSnapshot.docs.first.data()['imageUrl'] as String?;
       }
 
-      await FirebaseFirestore.instance.collection('itineraries').doc(widget.itineraryId).update({
+      await FirebaseFirestore.instance
+          .collection('itineraries')
+          .doc(widget.itineraryId)
+          .update({
         'title': _titleController.text.trim(),
         'startDate': Timestamp.fromDate(_startDate!),
         'endDate': Timestamp.fromDate(_endDate!),
@@ -136,24 +137,18 @@ class _EditTripPageState extends State<EditTripPage> {
         'updatedAt': Timestamp.now(),
       });
 
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(localizations.translate('update_failed')),
+            content: Text(AppLocalizations.of(context).translate('update_failed')),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -198,40 +193,44 @@ class _EditTripPageState extends State<EditTripPage> {
   Widget _buildDestinationDropdown() {
     final localizations = AppLocalizations.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
 
     if (_destinations.isEmpty) {
-      return InputDecorator(
-        decoration: InputDecoration(
-          labelText: localizations.translate('select_destination'),
-          border: const OutlineInputBorder(),
-          filled: true,
-          fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: theme.cardColor,
+          border: Border.all(color: Colors.grey[300]!),
         ),
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return DropdownButtonFormField<String>(
-      initialValue: _selectedDestination,
+      initialValue: _destinations.contains(_selectedDestination) ? _selectedDestination : null,
       decoration: InputDecoration(
         labelText: localizations.translate('select_destination'),
-        border: const OutlineInputBorder(),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         filled: true,
         fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
       ),
       items: _destinations.map((String destination) {
         return DropdownMenuItem<String>(
           value: destination,
-          child: Text(destination),
+          child: Text(
+            destination,
+            style: theme.textTheme.bodyMedium,
+            overflow: TextOverflow.ellipsis,
+          ),
         );
       }).toList(),
       onChanged: (String? newValue) {
-        setState(() {
-          _selectedDestination = newValue;
-        });
+        setState(() => _selectedDestination = newValue);
       },
+      dropdownColor: theme.cardColor,
+      borderRadius: BorderRadius.circular(8),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey),
     );
   }
 
@@ -239,6 +238,7 @@ class _EditTripPageState extends State<EditTripPage> {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -265,78 +265,54 @@ class _EditTripPageState extends State<EditTripPage> {
                   ),
                   const SizedBox(height: 24),
                   _labeledField(
-                      localizations.translate('destination'),
-                      _destinations.isEmpty
-                          ? Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
+                    localizations.translate('destination'),
+                    _destinations.isEmpty
+                        ? Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              color: theme.cardColor,
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: const Center(child: CircularProgressIndicator()),
+                          )
+                        : DropdownButtonFormField<String>(
+                            initialValue: _destinations.contains(_selectedDestination)
+                                ? _selectedDestination
+                                : null,
+                            hint: Text(
+                              localizations.translate('select_destination'),
+                              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                color: theme.cardColor,
-                                border: Border.all(color: Colors.grey[300]!),
+                                borderSide: BorderSide(color: Colors.grey[300]!),
                               ),
-                              child: const Center(child: CircularProgressIndicator()),
-                            )
-                          : DropdownButtonHideUnderline(
-                              child: DropdownButton2<String>(
-                                isExpanded: true,
-                                hint: Text(
-                                  localizations.translate('select_destination'),
-                                  style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                              filled: true,
+                              fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                            ),
+                            items: _destinations.map((String destination) {
+                              return DropdownMenuItem<String>(
+                                value: destination,
+                                child: Text(
+                                  destination,
+                                  style: theme.textTheme.bodyMedium,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                items: _destinations.map((String destination) {
-                                  return DropdownMenuItem<String>(
-                                    value: destination,
-                                    child: Text(
-                                      destination,
-                                      style: theme.textTheme.bodyMedium,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  );
-                                }).toList(),
-                                value: _selectedDestination,
-                                onChanged: (String? newValue) {
-                                  setState(() {
-                                    _selectedDestination = newValue;
-                                  });
-                                },
-
-                                // 👇 "Input box" styling
-                                buttonStyleData: ButtonStyleData(
-                                  height: 56,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.grey[300]!),
-                                    color: theme.cardColor,
-                                  ),
-                                ),
-
-                                // 👇 Arrow icon styling
-                                iconStyleData: const IconStyleData(
-                                  icon: Icon(Icons.keyboard_arrow_down_rounded),
-                                  iconSize: 24,
-                                  iconEnabledColor: Colors.grey,
-                                ),
-
-                                // 👇 Dropdown styling (always opens below input)
-                                dropdownStyleData: DropdownStyleData(
-                                  maxHeight: 300,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: theme.cardColor,
-                                  ),
-                                  offset: const Offset(0, 0),
-                                ),
-
-                                menuItemStyleData: const MenuItemStyleData(
-                                  height: 48,
-                                  padding: EdgeInsets.symmetric(horizontal: 14),
-                                ),
-                              ),
-                            ),
-                    ),
-
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() => _selectedDestination = newValue);
+                            },
+                            dropdownColor: theme.cardColor,
+                            borderRadius: BorderRadius.circular(8),
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey),
+                          ),
+                  ),
                   const SizedBox(height: 24),
                   Row(
                     children: [
@@ -356,10 +332,7 @@ class _EditTripPageState extends State<EditTripPage> {
                                 children: [
                                   Icon(Icons.calendar_today, color: Colors.grey[500], size: 20),
                                   const SizedBox(width: 8),
-                                  Text(
-                                    _formatDate(_startDate),
-                                    style: theme.textTheme.bodyLarge,
-                                  ),
+                                  Text(_formatDate(_startDate), style: theme.textTheme.bodyLarge),
                                 ],
                               ),
                             ),
@@ -383,10 +356,7 @@ class _EditTripPageState extends State<EditTripPage> {
                                 children: [
                                   Icon(Icons.calendar_today, color: Colors.grey[500], size: 20),
                                   const SizedBox(width: 8),
-                                  Text(
-                                    _formatDate(_endDate),
-                                    style: theme.textTheme.bodyLarge,
-                                  ),
+                                  Text(_formatDate(_endDate), style: theme.textTheme.bodyLarge),
                                 ],
                               ),
                             ),

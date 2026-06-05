@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:untitled/providers/auth_provider.dart';
 import '../l10n/app_localizations.dart';
-import 'package:dropdown_button2/dropdown_button2.dart';
 
 class CreateTripPage extends StatefulWidget {
   const CreateTripPage({super.key});
@@ -71,7 +70,10 @@ class _CreateTripPageState extends State<CreateTripPage> {
       return;
     }
 
-    if (_titleController.text.trim().isEmpty || _selectedDestination == null || _startDate == null || _endDate == null) {
+    if (_titleController.text.trim().isEmpty ||
+        _selectedDestination == null ||
+        _startDate == null ||
+        _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(localizations.translate('complete_required_fields'))),
       );
@@ -86,7 +88,6 @@ class _CreateTripPageState extends State<CreateTripPage> {
     }
 
     try {
-      // Fetch the selected place's document from 'places' collection
       final placeSnapshot = await FirebaseFirestore.instance
           .collection('places')
           .where('title', isEqualTo: _selectedDestination)
@@ -98,7 +99,6 @@ class _CreateTripPageState extends State<CreateTripPage> {
         imageUrl = placeSnapshot.docs.first.data()['imageUrl'] as String?;
       }
 
-      // Save itinerary with destination image
       await FirebaseFirestore.instance.collection('itineraries').add({
         'title': _titleController.text.trim(),
         'destination': _selectedDestination,
@@ -108,7 +108,7 @@ class _CreateTripPageState extends State<CreateTripPage> {
         'userId': user.uid,
         'places': [],
         'isPublic': false,
-        'imageUrl': imageUrl ?? '', // fallback empty if not found
+        'imageUrl': imageUrl ?? '',
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,14 +126,22 @@ class _CreateTripPageState extends State<CreateTripPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Theme.of(context).textTheme.bodyLarge?.color)),
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
         const SizedBox(height: 6),
         child,
       ],
     );
   }
 
-  InputDecoration _inputBoxDecoration({String? hintText, IconData? icon}) {    final isDark = Theme.of(context).brightness == Brightness.dark;
+  InputDecoration _inputBoxDecoration({String? hintText, IconData? icon}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InputDecoration(
       hintText: hintText,
       hintStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
@@ -156,6 +164,7 @@ class _CreateTripPageState extends State<CreateTripPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final localizations = AppLocalizations.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -182,65 +191,47 @@ class _CreateTripPageState extends State<CreateTripPage> {
             ),
             const SizedBox(height: 16),
             _labeledField(
-  localizations.translate('destination_label'),
-  DropdownButtonHideUnderline(
-    child: DropdownButton2<String>(
-      isExpanded: true,
-      hint: Text(
-        localizations.translate('select_destination'),
-        style: Theme.of(context).textTheme.bodyLarge,
-        overflow: TextOverflow.ellipsis,
-      ),
-      items: _destinations
-          .map((d) => DropdownMenuItem<String>(
-                value: d,
-                child: Text(
-                  d,
-                  style: Theme.of(context).textTheme.bodyLarge,
+              localizations.translate('destination_label'),
+              DropdownButtonFormField<String>(
+                hint: Text(
+                  localizations.translate('select_destination'),
+                  style: theme.textTheme.bodyLarge,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ))
-          .toList(),
-      value: _selectedDestination,
-      onChanged: (value) => setState(() => _selectedDestination = value),
-
-      // ✅ Styling the "input box"
-      buttonStyleData: ButtonStyleData(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade400),
-          color: Theme.of(context).cardColor,
-        ),
-      ),
-
-      // ✅ Arrow icon styling
-      iconStyleData: const IconStyleData(
-        icon: Icon(Icons.keyboard_arrow_down_rounded),
-        iconSize: 24,
-        iconEnabledColor: Colors.grey,
-      ),
-
-      // ✅ Dropdown list styling
-      dropdownStyleData: DropdownStyleData(
-        maxHeight: 300,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          color: Theme.of(context).cardColor,
-        ),
-        offset: const Offset(0, 0), // 👈 ensures it opens right below
-      ),
-
-      // ✅ Items styling
-      menuItemStyleData: const MenuItemStyleData(
-        height: 48,
-        padding: EdgeInsets.symmetric(horizontal: 14),
-      ),
-    ),
-  ),
-),
-
+                initialValue: _destinations.contains(_selectedDestination)
+                    ? _selectedDestination
+                    : null,
+                items: _destinations
+                    .map((d) => DropdownMenuItem<String>(
+                          value: d,
+                          child: Text(
+                            d,
+                            style: theme.textTheme.bodyLarge,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedDestination = value),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: isDark ? Colors.grey[900] : Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                        color: isDark ? Colors.grey[700]! : const Color(0xFFDADCE0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                        color: isDark ? Colors.grey[700]! : const Color(0xFFDADCE0)),
+                  ),
+                ),
+                dropdownColor: theme.cardColor,
+                borderRadius: BorderRadius.circular(8),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey),
+              ),
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -253,17 +244,14 @@ class _CreateTripPageState extends State<CreateTripPage> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          color: Theme.of(context).cardColor,
+                          color: theme.cardColor,
                           border: Border.all(color: Colors.grey[300]!),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.calendar_today, color: Colors.grey[500], size: 20),
                             const SizedBox(width: 8),
-                            Text(
-                              _formatDate(_startDate),
-                              style: theme.textTheme.bodyLarge,
-                            ),
+                            Text(_formatDate(_startDate), style: theme.textTheme.bodyLarge),
                           ],
                         ),
                       ),
@@ -280,17 +268,14 @@ class _CreateTripPageState extends State<CreateTripPage> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          color: Theme.of(context).cardColor,
+                          color: theme.cardColor,
                           border: Border.all(color: Colors.grey[300]!),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.calendar_today, color: Colors.grey[500], size: 20),
                             const SizedBox(width: 8),
-                            Text(
-                              _formatDate(_endDate),
-                              style: theme.textTheme.bodyLarge,
-                            ),
+                            Text(_formatDate(_endDate), style: theme.textTheme.bodyLarge),
                           ],
                         ),
                       ),

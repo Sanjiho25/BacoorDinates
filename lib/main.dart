@@ -24,25 +24,33 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    if (!kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.android ||
-            defaultTargetPlatform == TargetPlatform.iOS)) {
+    if (!kIsWeb) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
     } else {
-      // Web/desktop Firebase configuration is not set up in firebase_options.dart.
-      // Skip initialization here until those platforms are configured.
-      debugPrint('Skipping Firebase initialization on unsupported platform: '
-          '${kIsWeb ? 'web' : defaultTargetPlatform}');
+      debugPrint('Skipping Firebase initialization on web: Firebase has not been configured for web.');
     }
+  } on UnsupportedError catch (e) {
+    debugPrint('Firebase initialization unsupported on this platform: $e');
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
   }
 
-  // Initialize notification service
+  // Initialize notification service only on supported mobile platforms.
   final notificationService = NotificationService();
-  await notificationService.initialize();
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    try {
+      await notificationService.initialize();
+    } catch (e) {
+      debugPrint('Notification initialization error: $e');
+    }
+  } else {
+    debugPrint('Skipping notification service initialization on unsupported platform: '
+        '${kIsWeb ? 'web' : defaultTargetPlatform}');
+  }
 
   runApp(
     MultiProvider(
@@ -95,6 +103,14 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+
+    if (authProvider.isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     if (authProvider.isAuthenticated) {
       return const HomePage();

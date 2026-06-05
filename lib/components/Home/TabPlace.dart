@@ -91,75 +91,80 @@ class _TabPlaceState extends State<TabPlace> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppLocalizations.of(context).translate('search_places'),
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surface,
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.toLowerCase();
-                });
-              },
+    final children = <Widget>[
+      // Search Bar
+      Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: AppLocalizations.of(context).translate('search_places'),
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                      });
+                    },
+                  )
+                : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surface,
           ),
-          if (_searchQuery.isEmpty) ...[
-            TabBar(
-              isScrollable: true,
-              controller: _tabController,
-              labelColor: Theme.of(context).colorScheme.primary,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Theme.of(context).colorScheme.primary,
-              tabs: [
-                Tab(text: AppLocalizations.of(context).translate('popular')),
-                Tab(text: AppLocalizations.of(context).translate('churches')),
-                Tab(text: AppLocalizations.of(context).translate('historical')),
-                Tab(text: AppLocalizations.of(context).translate('restaurants')),
-                Tab(text: AppLocalizations.of(context).translate('hotels')),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildPopularList(),
-                  _buildCategoryList('Churches'),
-                  _buildCategoryList('Historical'),
-                  _buildCategoryList('Restaurants'),
-                  _buildCategoryList('Hotels'),
-                ],
-              ),
-            ),
-          ] else
-            // Show search results when searching
-            Expanded(
-              child: _buildSearchResults(),
-            ),
-        ],
+          onChanged: (value) {
+            setState(() {
+              _searchQuery = value.toLowerCase();
+            });
+          },
+        ),
       ),
+    ];
+
+    if (_searchQuery.isEmpty) {
+      children.addAll([
+        TabBar(
+          isScrollable: true,
+          controller: _tabController,
+          labelColor: Theme.of(context).colorScheme.primary,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: Theme.of(context).colorScheme.primary,
+          tabs: [
+            Tab(text: AppLocalizations.of(context).translate('popular')),
+            Tab(text: AppLocalizations.of(context).translate('churches')),
+            Tab(text: AppLocalizations.of(context).translate('historical')),
+            Tab(text: AppLocalizations.of(context).translate('restaurants')),
+            Tab(text: AppLocalizations.of(context).translate('hotels')),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildPopularList(),
+              _buildCategoryList('Churches'),
+              _buildCategoryList('Historical'),
+              _buildCategoryList('Restaurants'),
+              _buildCategoryList('Hotels'),
+            ],
+          ),
+        ),
+      ]);
+    } else {
+      children.add(
+        Expanded(
+          child: _buildSearchResults(),
+        ),
+      );
+    }
+
+    return Column(
+      children: children,
     );
   }
 

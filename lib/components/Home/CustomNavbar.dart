@@ -27,7 +27,7 @@ class CustomNavbar extends StatelessWidget {
         children: [
           _buildNavItem(context, FontAwesomeIcons.language, localizations.translate('nav_translator'), 0),
             _buildNavItem(context, FontAwesomeIcons.cube, localizations.translate('nav_camera'), 1),
-          _buildNavItem(context, FontAwesomeIcons.home, localizations.translate('nav_home'), 2),
+          _buildNavItem(context, FontAwesomeIcons.house, localizations.translate('nav_home'), 2),
           _buildNavItem(context, FontAwesomeIcons.solidComments, localizations.translate('nav_forum'), 3),
           _buildNavItem(context, FontAwesomeIcons.solidUser, localizations.translate('nav_user'), 4),
         ],
@@ -36,20 +36,27 @@ class CustomNavbar extends StatelessWidget {
   }
 
   Widget _buildNavItem(BuildContext context, dynamic icon, String label, int index) {
-    final isDarkMode = context.watch<ThemeProvider>().isDarkMode;
-    final accentColor = selectedIndex == index
-        ? const Color(0xFFFFB300)
-        : Colors.white;
+    final iconColor = selectedIndex == index
+        ? const Color(0xCCFFB300)
+        : Colors.white70;
     
+    final Widget iconWidget = icon is FaIconData
+        ? FaIcon(
+            icon,
+            color: iconColor,
+            size: 20,
+          )
+        : Icon(
+            icon,
+            color: iconColor,
+            size: 20,
+          );
+
     return IconButton(
       icon: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: selectedIndex == index ? const Color(0xFFFFB300) : Colors.white70,
-            size: 20,
-          ),
+          iconWidget,
           if (selectedIndex == index)
             Text(
               label,

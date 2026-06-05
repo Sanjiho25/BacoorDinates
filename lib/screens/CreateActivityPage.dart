@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../l10n/app_localizations.dart';
-import 'package:dropdown_button2/dropdown_button2.dart';
 
 class CreateActivityPage extends StatefulWidget {
   final String itineraryId;
@@ -74,7 +73,10 @@ class _CreateActivityPageState extends State<CreateActivityPage> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _selectedDate == null || _selectedTime == null || _selectedPlaceId == null) {
+    if (!_formKey.currentState!.validate() ||
+        _selectedDate == null ||
+        _selectedTime == null ||
+        _selectedPlaceId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppLocalizations.of(context).translate('fill_required_fields'))),
       );
@@ -90,7 +92,6 @@ class _CreateActivityPageState extends State<CreateActivityPage> {
     );
 
     try {
-      // find selected place data (id, title, lat, long)
       final selectedPlace = _places.firstWhere((p) => (p['id'] as String) == _selectedPlaceId);
       final placeTitle = selectedPlace['title'] ?? '';
       final placeLat = double.tryParse('${selectedPlace['lat']}') ?? 0.0;
@@ -159,7 +160,9 @@ class _CreateActivityPageState extends State<CreateActivityPage> {
                 TextFormField(
                   controller: _titleController,
                   decoration: _inputDecoration(localizations.translate('activity_title_hint')),
-                  validator: (value) => value == null || value.isEmpty ? localizations.translate('required_field') : null,
+                  validator: (value) => value == null || value.isEmpty
+                      ? localizations.translate('required_field')
+                      : null,
                 ),
               ),
               const SizedBox(height: 14),
@@ -169,7 +172,9 @@ class _CreateActivityPageState extends State<CreateActivityPage> {
                   controller: _descriptionController,
                   decoration: _inputDecoration(localizations.translate('description_hint')),
                   maxLines: 3,
-                  validator: (value) => value == null || value.isEmpty ? localizations.translate('required_field') : null,
+                  validator: (value) => value == null || value.isEmpty
+                      ? localizations.translate('required_field')
+                      : null,
                 ),
               ),
               const SizedBox(height: 14),
@@ -184,7 +189,9 @@ class _CreateActivityPageState extends State<CreateActivityPage> {
                           child: TextFormField(
                             decoration: _inputDecoration('YYYY-MM-DD'),
                             controller: TextEditingController(text: _formatDate(_selectedDate)),
-                            validator: (_) => _selectedDate == null ? localizations.translate('required_field') : null,
+                            validator: (_) => _selectedDate == null
+                                ? localizations.translate('required_field')
+                                : null,
                           ),
                         ),
                       ),
@@ -200,7 +207,9 @@ class _CreateActivityPageState extends State<CreateActivityPage> {
                           child: TextFormField(
                             decoration: _inputDecoration('HH:MM'),
                             controller: TextEditingController(text: _formatTime(_selectedTime)),
-                            validator: (_) => _selectedTime == null ? localizations.translate('required_field') : null,
+                            validator: (_) => _selectedTime == null
+                                ? localizations.translate('required_field')
+                                : null,
                           ),
                         ),
                       ),
@@ -211,43 +220,25 @@ class _CreateActivityPageState extends State<CreateActivityPage> {
               const SizedBox(height: 14),
               _labeledField(
                 localizations.translate('location_label'),
-                DropdownButtonHideUnderline(
-                  child: DropdownButton2<String>(
-                    isExpanded: true,
-                    hint: Text(localizations.translate('select_location')),
-                    items: _places
-                        .map((p) => DropdownMenuItem<String>(
-                              value: p['id'] as String,
-                              child: Text(p['title'] ?? '', overflow: TextOverflow.ellipsis),
-                            ))
-                        .toList(),
-                    value: _selectedPlaceId,
-                    onChanged: (value) => setState(() => _selectedPlaceId = value),
-                    buttonStyleData: ButtonStyleData(
-                      height: 56,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade400),
-                        color: Theme.of(context).cardColor,
-                      ),
-                    ),
-                    iconStyleData: const IconStyleData(
-                      icon: Icon(Icons.keyboard_arrow_down_rounded),
-                      iconSize: 24,
-                      iconEnabledColor: Colors.grey,
-                    ),
-                    dropdownStyleData: DropdownStyleData(
-                      maxHeight: 300,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: Theme.of(context).cardColor,
-                      ),
-                    ),
-                    menuItemStyleData: const MenuItemStyleData(
-                      height: 48,
-                      padding: EdgeInsets.symmetric(horizontal: 14),
-                    ),
+                DropdownButtonFormField<String>(
+                  hint: Text(localizations.translate('select_location')),
+                  initialValue: _selectedPlaceId,
+                  items: _places
+                      .map((p) => DropdownMenuItem<String>(
+                            value: p['id'] as String,
+                            child: Text(
+                              p['title'] ?? '',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: (value) => setState(() => _selectedPlaceId = value),
+                  validator: (_) => _selectedPlaceId == null
+                      ? localizations.translate('required_field')
+                      : null,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                 ),
               ),
@@ -260,7 +251,8 @@ class _CreateActivityPageState extends State<CreateActivityPage> {
                   keyboardType: TextInputType.number,
                 ),
               ),
-              const SizedBox(height: 32),              ElevatedButton(
+              const SizedBox(height: 32),
+              ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4080FF),
                   foregroundColor: Colors.white,

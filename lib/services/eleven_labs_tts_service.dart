@@ -14,18 +14,34 @@ class ElevenLabsTtsService {
     'ELEVENLABS_API_KEY',
     defaultValue: 'YOUR_ELEVENLABS_API_KEY',
   );
-  final String _voiceId = '21m00Tcm4TlvDq8ikWAM';
+  final String _defaultVoiceId = const String.fromEnvironment(
+    'ELEVENLABS_VOICE_ID',
+    defaultValue: 'VR6AewLIUMnocjkujllp', // Freya - warm & friendly
+  );
+  final String _tagalogVoiceId = const String.fromEnvironment(
+    'ELEVENLABS_TAGALOG_VOICE_ID',
+    defaultValue: 'VR6AewLIUMnocjkujllp', // Freya works well for Tagalog
+  );
   final String _baseUrl = 'https://api.elevenlabs.io/v1/text-to-speech';
 
-  Future<bool> speak(String text) async {
+  String _voiceIdForLanguage(String languageCode) {
+    final code = languageCode.toLowerCase();
+    if (code.startsWith('tl')) {
+      return _tagalogVoiceId.isNotEmpty ? _tagalogVoiceId : _defaultVoiceId;
+    }
+    return _defaultVoiceId;
+  }
+
+  Future<bool> speak(String text, {String languageCode = 'en-US'}) async {
     if (text.isEmpty) return false;
     if (_apiKey.isEmpty || _apiKey == 'YOUR_ELEVENLABS_API_KEY') {
       print('ElevenLabs API key is not configured.');
       return false;
     }
 
+    final voiceId = _voiceIdForLanguage(languageCode);
+    final uri = Uri.parse('$_baseUrl/$voiceId');
     try {
-      final uri = Uri.parse('$_baseUrl/$_voiceId');
       final response = await http.post(
         uri,
         headers: {
@@ -35,9 +51,12 @@ class ElevenLabsTtsService {
         },
         body: jsonEncode({
           'text': text,
+          'model_id': 'eleven_multilingual_v2',
           'voice_settings': {
-            'stability': 0.75,
-            'similarity_boost': 0.7,
+            'stability': 0.55,
+            'similarity_boost': 0.85,
+            'style': 0.5,
+            'use_speaker_boost': true,
           },
         }),
       );

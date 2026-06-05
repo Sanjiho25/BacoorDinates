@@ -18,6 +18,14 @@ class _HomePageState extends State<HomePage> {
   late PageController _pageController;
   int _selectedIndex = 2;
 
+  static const List<Widget> _pages = [
+    TranslatorPage(),
+    ARViewerScreen(),
+    HomeScreen(), // Home remains at index 2
+    ForumPage(),
+    ProfilePage(),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -41,21 +49,16 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
+      body: PageView.builder(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
+        itemCount: _pages.length,
         onPageChanged: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
-        children: const [
-          TranslatorPage(),
-          ARViewerScreen(),
-          HomeScreen(), // Home remains at index 2
-          ForumPage(),
-          ProfilePage(),
-        ],
+        itemBuilder: (context, index) => _pages[index],
       ),
     
       bottomNavigationBar: CustomNavbar(

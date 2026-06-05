@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import '../providers/language_provider.dart';
 import '../services/eleven_labs_tts_service.dart';
+import '../services/tts_utils.dart';
 import '../l10n/app_localizations.dart';
 import 'ExploreMapPage.dart';
 
@@ -36,20 +37,27 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
   }
 
   Future<void> speakText(String text, String langCode) async {
-    final elevenSuccess = await ElevenLabsTtsService.instance.speak(text);
+    final elevenSuccess = await ElevenLabsTtsService.instance.speak(
+      text,
+      languageCode: langCode,
+    );
     if (elevenSuccess) return;
 
     try {
-      await flutterTts.setLanguage(langCode);
-      await flutterTts.setPitch(1.0);
-      await flutterTts.setSpeechRate(0.35);
-      await flutterTts.setVolume(1.0);
+      final normalizedText = TtsUtils.normalizeText(text);
+      await TtsUtils.configureTts(
+        flutterTts,
+        langCode,
+        speechRate: 0.34,
+        pitch: 1.05,
+        volume: 1.0,
+      );
 
       if (!mounted) return;
       setState(() => _isSpeaking = true);
 
       await flutterTts.setQueueMode(1);
-      await flutterTts.speak(text).whenComplete(() {
+      await flutterTts.speak(normalizedText).whenComplete(() {
         if (mounted) setState(() => _isSpeaking = false);
       });
     } catch (e) {

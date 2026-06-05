@@ -20,7 +20,6 @@ class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // 🔹 Email & Password Sign-In
   Future<void> signInWithEmail() async {
     try {
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
@@ -28,32 +27,28 @@ class _LoginPageState extends State<LoginPage> {
         password: passwordController.text.trim(),
       );
 
+      if (!mounted) return;
+
       if (userCredential.user != null && !userCredential.user!.emailVerified) {
-        // Sign out the user since email is not verified
         await _auth.signOut();
-        
-        // Show error message
+
+        if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AppLocalizations.of(context).translate('verify_email_message')),
             duration: const Duration(seconds: 5),
           ),
         );
-        
-        // Offer to resend verification email
+
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             backgroundColor: Colors.white.withValues(alpha: 0.95),
             title: Text(
               AppLocalizations.of(context).translate('email_not_verified'),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
             ),
             content: Text(
               AppLocalizations.of(context).translate('resend_verification_email'),
@@ -62,9 +57,7 @@ class _LoginPageState extends State<LoginPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.grey[600],
-                ),
+                style: TextButton.styleFrom(foregroundColor: Colors.grey[600]),
                 child: Text(AppLocalizations.of(context).translate('cancel')),
               ),
               TextButton(
@@ -72,10 +65,12 @@ class _LoginPageState extends State<LoginPage> {
                   Navigator.pop(context);
                   try {
                     await userCredential.user!.sendEmailVerification();
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(AppLocalizations.of(context).translate('verification_email_sent'))),
                     );
                   } catch (e) {
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("${AppLocalizations.of(context).translate('verification_email_error')}: ${e.toString()}")),
                     );
@@ -86,22 +81,26 @@ class _LoginPageState extends State<LoginPage> {
             ],
           ),
         );
-        
+
         return;
       }
 
-      // Also check if user status is active in Firestore
-      final userDoc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      if (!mounted) return;
+
       if (userDoc.exists && userDoc.data()?['status'] == 'inactive') {
-        // Update status to active if email is verified
         if (userCredential.user!.emailVerified) {
-          await _firestore.collection('users').doc(userCredential.user!.uid).update({
-            'status': 'active',
-          });
+          await _firestore
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .update({'status': 'active'});
         } else {
-          // Sign out the user since status is inactive
           await _auth.signOut();
-          
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(AppLocalizations.of(context).translate('account_inactive'))),
           );
@@ -109,7 +108,8 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
 
-      // Navigate to Home Page after successful login
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
@@ -119,76 +119,93 @@ class _LoginPageState extends State<LoginPage> {
             const end = Offset.zero;
             const curve = Curves.easeInOutCubic;
             var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-            var offsetAnimation = animation.drive(tween);
-            return SlideTransition(position: offsetAnimation, child: child);
+            return SlideTransition(position: animation.drive(tween), child: child);
           },
           transitionDuration: const Duration(milliseconds: 500),
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("${AppLocalizations.of(context).translate('error')}: ${e.toString()}")),
       );
     }
   }
 
-  // 🔹 Google Sign-In
   Future<void> signInWithGoogle() async {
-  try {
-    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) return; // User canceled sign-in
+    try {
+      // v7: singleton pattern, initialize once before use
+      final googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.initialize();
 
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-    final AuthCredential credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
+      // v7: authenticate() replaces signIn()
+      final GoogleSignInAccount googleUser = await googleSignIn.authenticate();
 
-    UserCredential userCredential = await _auth.signInWithCredential(credential);
-    User? user = userCredential.user;
+      // v7: idToken is on googleUser.authentication (now synchronous)
+      final String? idToken = googleUser.authentication.idToken;
 
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).translate('sign_in_failed'))),
+      // v7: accessToken requires explicit scope authorization
+      final GoogleSignInClientAuthorization clientAuth =
+          await googleUser.authorizationClient.authorizeScopes(['email', 'profile']);
+      final String accessToken = clientAuth.accessToken;
+
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        idToken: idToken,
+        accessToken: accessToken,
       );
-      return;
-    }
 
-    // **Check if user exists in Firestore**
-    final DocumentSnapshot userDoc =
-        await _firestore.collection('users').doc(user.uid).get();
+      UserCredential userCredential = await _auth.signInWithCredential(credential);
+      User? user = userCredential.user;
 
-    if (!userDoc.exists) {
-      // **New user → Redirect to Registration Page**
+      if (!mounted) return;
+
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  AppLocalizations.of(context).translate('sign_in_failed'))),
+        );
+        return;
+      }
+
+      final DocumentSnapshot userDoc =
+          await _firestore.collection('users').doc(user.uid).get();
+
+      if (!mounted) return;
+
+      if (!userDoc.exists) {
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const RegisterPage(),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutCubic;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              return SlideTransition(
+                  position: animation.drive(tween), child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
+        return;
+      }
+
       Navigator.pushReplacement(
         context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const RegisterPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(1.0, 0.0);
-            const end = Offset.zero;
-            const curve = Curves.easeInOutCubic;
-            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-            var offsetAnimation = animation.drive(tween);
-            return SlideTransition(position: offsetAnimation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 500),
-        ),
+        MaterialPageRoute(builder: (context) => const HomePage()),
       );
-      return;
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
     }
-
-    // **Existing user → Redirect to Home Page**
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const HomePage()),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error: ${e.toString()}")),
-    );
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -288,10 +305,7 @@ class _LoginPageState extends State<LoginPage> {
                 },
                 child: Text(
                   localizations.translate('dont_have_account'),
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    fontSize: 16,
-                  ),
+                  style: const TextStyle(color: Colors.blue, fontSize: 16),
                 ),
               ),
             ],

@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:math';
 
 import '../services/eleven_labs_tts_service.dart';
+import '../services/tts_utils.dart';
 import 'package:untitled/l10n/app_localizations.dart';
 
 class ARViewerScreen extends StatefulWidget {
@@ -34,21 +35,29 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
   }
 
   Future<void> _initTts() async {
-    String languageCode = Localizations.localeOf(context).languageCode;
-    if (languageCode == 'tl') {
-      languageCode = 'tl-PH';
-    }
-    await flutterTts.setLanguage(languageCode);
-    await flutterTts.setSpeechRate(0.35);
-    await flutterTts.setVolume(1.0);
-    await flutterTts.setPitch(1.0);
-    await flutterTts.awaitSpeakCompletion(true);
+    try {
+      String languageCode = Localizations.localeOf(context).languageCode;
+      if (languageCode == 'tl') {
+        languageCode = 'tl-PH';
+      }
+      await TtsUtils.configureTts(
+        flutterTts,
+        languageCode,
+        speechRate: 0.34,
+        pitch: 1.0,
+        volume: 1.0,
+      );
 
-    flutterTts.setCompletionHandler(() {
-      setState(() {
-        isSpeaking = false;
+      flutterTts.setCompletionHandler(() {
+        if (mounted) {
+          setState(() {
+            isSpeaking = false;
+          });
+        }
       });
-    });
+    } catch (e) {
+      debugPrint('ARViewerScreen TTS initialization failed: $e');
+    }
   }
 
   Future<void> _speak(String text) async {
@@ -67,7 +76,15 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
       isSpeaking = true;
     });
 
-    final elevenSuccess = await ElevenLabsTtsService.instance.speak(text);
+    String languageCode = Localizations.localeOf(context).languageCode;
+    if (languageCode == 'tl') {
+      languageCode = 'tl-PH';
+    }
+
+    final elevenSuccess = await ElevenLabsTtsService.instance.speak(
+      text,
+      languageCode: languageCode,
+    );
     if (elevenSuccess) {
       setState(() {
         isSpeaking = false;
@@ -75,34 +92,55 @@ class _ARViewerScreenState extends State<ARViewerScreen> {
       return;
     }
 
-    // Slow down place description narration and add short pauses.
-    await flutterTts.setSpeechRate(0.32);
+    await TtsUtils.configureTts(
+      flutterTts,
+      languageCode,
+      speechRate: 0.32,
+      pitch: 1.0,
+      volume: 1.0,
+    );
+
+    final normalizedText = TtsUtils.normalizeText(text);
     await flutterTts.setQueueMode(1);
-
-    final processedText = text
-        .replaceAll('. ', '. ')
-        .replaceAll('? ', '? ')
-        .replaceAll('! ', '! ');
-
-    await flutterTts.speak(processedText);
+    await flutterTts.speak(normalizedText);
   }
 
   Future<void> _loadNearbyARObjects() async {
-    final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    final snapshot =
-        await FirebaseFirestore.instance.collection('ar_objects').get();
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        debugPrint('Location services are disabled. Skipping AR object lookup.');
+        return;
+      }
 
-    setState(() {
-      _nearbyARObjects = snapshot.docs.where((doc) {
-        final data = doc.data();
-        final double docLat = data['latitude'];
-        final double docLng = data['longitude'];
-        final distance = _calculateDistance(
-            position.latitude, position.longitude, docLat, docLng);
-        return distance < 1; // 1 km radius
-      }).toList();
-    });
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        debugPrint('Location permission denied. Skipping AR object lookup.');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      final snapshot =
+          await FirebaseFirestore.instance.collection('ar_objects').get();
+
+      setState(() {
+        _nearbyARObjects = snapshot.docs.where((doc) {
+          final data = doc.data();
+          final double docLat = data['latitude'];
+          final double docLng = data['longitude'];
+          final distance = _calculateDistance(
+              position.latitude, position.longitude, docLat, docLng);
+          return distance < 1; // 1 km radius
+        }).toList();
+      });
+    } catch (e, st) {
+      debugPrint('Error loading AR objects: $e');
+      debugPrint('$st');
+    }
   }
 
   double _calculateDistance(
