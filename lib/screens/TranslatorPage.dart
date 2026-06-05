@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform, File;
+import 'dart:io' show Platform;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,12 +9,11 @@ import 'package:untitled/l10n/app_localizations.dart';
 import 'package:untitled/providers/theme_provider.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:http/http.dart' as http;
-import '../services/eleven_labs_tts_service.dart';
-import '../services/eleven_labs_stt_service.dart';
+import '../services/edge_tts_service.dart';
 import '../services/tts_utils.dart';
 import 'package:untitled/components/DarkModeToggle.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:record/record.dart';
+import '../services/stt_service.dart';
 import 'package:path_provider/path_provider.dart';
 
 class TranslatorPage extends StatefulWidget {
@@ -31,8 +30,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
   String _selectedTargetLanguage = 'Filipino';
   bool _isLoading = false;
   bool _isListening = false;
+  bool _isSpeaking = false;
   final FlutterTts flutterTts = FlutterTts();
-  final AudioRecorder _recorder = AudioRecorder();
   String _errorMessage = '';
 
   final Map<String, String> _languageCodes = {
@@ -57,6 +56,17 @@ class _TranslatorPageState extends State<TranslatorPage> {
     'Malaysian',
   ];
 
+  final Map<String, String> _ttsLanguageCodes = {
+    'English': 'en-US',
+    'Filipino': 'tl-PH',
+    'Japanese': 'ja-JP',
+    'Korean': 'ko-KR',
+    'Chinese': 'zh-CN',
+    'Taiwanese': 'zh-TW',
+    'Singaporean': 'ms-SG',
+    'Malaysian': 'ms-MY',
+  };
+
   List<DropdownMenuItem<String>> _buildDropdownItems() {
     return _languages.map((String item) {
       return DropdownMenuItem<String>(
@@ -70,17 +80,6 @@ class _TranslatorPageState extends State<TranslatorPage> {
       );
     }).toList();
   }
-
-  final Map<String, String> _ttsLanguageCodes = {
-    'English': 'en-US',
-    'Filipino': 'tl-PH',
-    'Japanese': 'ja-JP',
-    'Korean': 'ko-KR',
-    'Chinese': 'zh-CN',
-    'Taiwanese': 'zh-TW',
-    'Singaporean': 'ms-SG',
-    'Malaysian': 'ms-MY',
-  };
 
   @override
   void initState() {
@@ -103,11 +102,13 @@ class _TranslatorPageState extends State<TranslatorPage> {
   }
 
   @override
-  void dispose() {
-    _textController.dispose();
-    flutterTts.stop();
-    super.dispose();
-  }
+void dispose() {
+  _textController.dispose();
+  flutterTts.stop();
+  EdgeTtsService.instance.stop();
+  SttService.instance.cancel();
+  super.dispose();
+}
 
   TranslateLanguage? _getTranslateLanguage(String language) {
     switch (language) {
@@ -248,180 +249,128 @@ class _TranslatorPageState extends State<TranslatorPage> {
   Future<void> _speak(String text) async {
     if (text.isEmpty) return;
 
-    final languageCode = _ttsLanguageCodes[_selectedTargetLanguage] ?? 'en-US';
-    final elevenSuccess = await ElevenLabsTtsService.instance.speak(
-      text,
-      languageCode: languageCode,
-    );
-    if (elevenSuccess) return;
-
-    try {
-      final normalizedText = TtsUtils.normalizeText(text);
-
-      switch (_selectedTargetLanguage) {
-        case 'Chinese':
-        case 'Taiwanese':
-          await TtsUtils.configureTts(
-            flutterTts,
-            languageCode,
-            speechRate: 0.30,
-            pitch: 1.05,
-            volume: 0.95,
-          );
-          break;
-        case 'Japanese':
-          await TtsUtils.configureTts(
-            flutterTts,
-            languageCode,
-            speechRate: 0.32,
-            pitch: 1.05,
-            volume: 0.95,
-          );
-          break;
-        case 'Korean':
-          await TtsUtils.configureTts(
-            flutterTts,
-            languageCode,
-            speechRate: 0.32,
-            pitch: 1.03,
-            volume: 0.95,
-          );
-          break;
-        case 'Filipino':
-          await TtsUtils.configureTts(
-            flutterTts,
-            languageCode,
-            speechRate: 0.34,
-            pitch: 1.02,
-            volume: 0.95,
-          );
-          break;
-        case 'English':
-          await TtsUtils.configureTts(
-            flutterTts,
-            languageCode,
-            speechRate: 0.34,
-            pitch: 1.05,
-            volume: 1.0,
-          );
-          break;
-        default:
-          await TtsUtils.configureTts(
-            flutterTts,
-            languageCode,
-            speechRate: 0.36,
-            pitch: 1.0,
-            volume: 0.95,
-          );
-      }
-
-      await flutterTts.setQueueMode(1);
-      await flutterTts.speak(normalizedText);
-    } catch (e) {
-      print('TTS Error: $e');
-      await flutterTts.setLanguage('en-US');
-      await flutterTts.setSpeechRate(0.45);
-      await flutterTts.setPitch(1.0);
-      await flutterTts.speak(text);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  'Human-like voice for $_selectedTargetLanguage not available. Using standard voice instead.')),
-        );
-      }
-    }
-  }
-
-  void _toggleListening() async {
-    if (_isListening) {
-      try {
-        final filePath = await _recorder.stop();
-        setState(() => _isListening = false);
-
-        if (filePath != null && filePath.isNotEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Processing speech with ElevenLabs...'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          }
-
-          final transcript = await ElevenLabsSttService.instance.transcribe(
-            File(filePath),
-            _languageCodes[_selectedSourceLanguage] ?? 'en-US',
-          );
-
-          if (transcript != null && transcript.isNotEmpty) {
-            setState(() {
-              _textController.text = transcript;
-            });
-            await _translate();
-            return;
-          }
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('ElevenLabs STT failed. Please try again.'),
-              ),
-            );
-          }
-        }
-      } catch (e) {
-        print('Error stopping recording: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error processing speech: ${e.toString()}')),
-          );
-        }
-      }
+    // Tap again while speaking = stop
+    if (_isSpeaking) {
+      await EdgeTtsService.instance.stop();
+      await flutterTts.stop();
+      setState(() => _isSpeaking = false);
       return;
     }
 
-    try {
-      final permissionGranted = await _checkMicPermission();
-      if (!permissionGranted) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Microphone permission is required')),
-          );
-        }
-        return;
-      }
+    final languageCode = _ttsLanguageCodes[_selectedTargetLanguage] ?? 'en-US';
+    setState(() => _isSpeaking = true);
 
-      final tempDir = await getTemporaryDirectory();
-      final path =
-          '${tempDir.path}/elevenlabs_stt_${DateTime.now().millisecondsSinceEpoch}.wav';
-      await _recorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.wav,
-          bitRate: 128000,
-          sampleRate: 44100,
-        ),
-        path: path,
+    try {
+      // EdgeTtsService internally routes:
+      // Filipino / Malay → Google Translate TTS (natural Tagalog sound)
+      // All others       → Microsoft Edge TTS neural voices
+      final success = await EdgeTtsService.instance.speak(
+        text,
+        languageCode: languageCode,
       );
 
-      setState(() => _isListening = true);
+      if (!success) {
+        // Offline fallback: Flutter TTS (device voices)
+        await TtsUtils.configureTts(
+          flutterTts,
+          languageCode,
+          speechRate: _getSpeechRate(_selectedTargetLanguage),
+          pitch: 1.02,
+          volume: 0.95,
+        );
+        await flutterTts.speak(TtsUtils.normalizeText(text));
+      }
     } catch (e) {
-      print('Error starting speech recording: $e');
-      setState(() => _isListening = false);
+      print('TTS error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+          const SnackBar(
+            content: Text('TTS unavailable. Please check your connection.'),
+          ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSpeaking = false);
     }
   }
 
+  double _getSpeechRate(String language) {
+    switch (language) {
+      case 'Chinese':
+      case 'Taiwanese':
+        return 0.30;
+      case 'Japanese':
+      case 'Korean':
+        return 0.32;
+      case 'Filipino':
+        return 0.34;
+      default:
+        return 0.38;
+    }
+  }
+
+void _toggleListening() async {
+  if (SttService.instance.isListening) {
+    await SttService.instance.stopListening();
+    setState(() => _isListening = false);
+    return;
+  }
+
+  final permissionGranted = await _checkMicPermission();
+  if (!permissionGranted) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Microphone permission is required')),
+      );
+    }
+    return;
+  }
+
+  setState(() => _isListening = true);
+
+  await SttService.instance.startListening(
+    language: _selectedSourceLanguage,
+    onResult: (text) {
+      // Show live transcription in the text field as user speaks
+      if (mounted) setState(() => _textController.text = text);
+    },
+    onDone: () async {
+      if (mounted) setState(() => _isListening = false);
+      // Auto-translate once speech is finalized
+      if (_textController.text.trim().isNotEmpty) {
+        await _translate();
+      }
+    },
+  );
+}
+  
   Future<void> _copyToClipboard(String text) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Copied to clipboard')),
       );
+    }
+  }
+
+  Future<bool> _checkMicPermission() async {
+    try {
+      var micStatus = await Permission.microphone.status;
+      if (micStatus.isDenied) {
+        micStatus = await Permission.microphone.request();
+        if (!micStatus.isGranted) return false;
+      }
+      if (Platform.isIOS) {
+        var speechStatus = await Permission.speech.status;
+        if (speechStatus.isDenied) {
+          speechStatus = await Permission.speech.request();
+          if (!speechStatus.isGranted) return false;
+        }
+      }
+      return true;
+    } catch (e) {
+      print('Error checking permissions: $e');
+      return false;
     }
   }
 
@@ -526,7 +475,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Icon(Icons.translate, size: 16, key: ValueKey('translate')),
+            : const Icon(Icons.translate,
+                size: 16, key: ValueKey('translate')),
       ),
       label: const Text('Translate', style: TextStyle(fontSize: 13)),
       style: ElevatedButton.styleFrom(
@@ -567,7 +517,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: isDarkMode ? const Color(0xFF4080FF) : Colors.blue,
+                    color:
+                        isDarkMode ? const Color(0xFF4080FF) : Colors.blue,
                   ),
                 ),
                 Row(
@@ -586,13 +537,16 @@ class _TranslatorPageState extends State<TranslatorPage> {
                       padding: EdgeInsets.zero,
                     ),
                     IconButton(
-                      icon: Icon(Icons.volume_up,
-                          color: isDarkMode
-                              ? const Color(0xFF4080FF)
-                              : Colors.blue,
-                          size: 20),
+                      icon: Icon(
+                        // Toggles between volume_up and stop while speaking
+                        _isSpeaking ? Icons.stop_circle : Icons.volume_up,
+                        color: isDarkMode
+                            ? const Color(0xFF4080FF)
+                            : Colors.blue,
+                        size: 20,
+                      ),
                       onPressed: () => _speak(_translatedText),
-                      tooltip: 'Listen',
+                      tooltip: _isSpeaking ? 'Stop' : 'Listen',
                       constraints:
                           const BoxConstraints(minWidth: 36, minHeight: 36),
                       padding: EdgeInsets.zero,
@@ -604,7 +558,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
           ),
           Divider(
             height: 1,
-            color: isDarkMode ? const Color(0xFF3D3D3D) : Colors.grey.shade200,
+            color:
+                isDarkMode ? const Color(0xFF3D3D3D) : Colors.grey.shade200,
           ),
           Padding(
             padding: const EdgeInsets.all(12.0),
@@ -677,27 +632,6 @@ class _TranslatorPageState extends State<TranslatorPage> {
     );
   }
 
-  Future<bool> _checkMicPermission() async {
-    try {
-      var micStatus = await Permission.microphone.status;
-      if (micStatus.isDenied) {
-        micStatus = await Permission.microphone.request();
-        if (!micStatus.isGranted) return false;
-      }
-      if (Platform.isIOS) {
-        var speechStatus = await Permission.speech.status;
-        if (speechStatus.isDenied) {
-          speechStatus = await Permission.speech.request();
-          if (!speechStatus.isGranted) return false;
-        }
-      }
-      return true;
-    } catch (e) {
-      print('Error checking permissions: $e');
-      return false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDarkMode = context.watch<ThemeProvider>().isDarkMode;
@@ -741,7 +675,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
                           Expanded(
                             child: Container(
                               height: 50,
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
@@ -755,10 +690,12 @@ class _TranslatorPageState extends State<TranslatorPage> {
                               ),
                               child: _buildDropdown(
                                 value: _selectedSourceLanguage,
-                                hint: AppLocalizations.of(context).translate('from'),
+                                hint: AppLocalizations.of(context)
+                                    .translate('from'),
                                 onChanged: (value) {
                                   if (value != null) {
-                                    setState(() => _selectedSourceLanguage = value);
+                                    setState(() =>
+                                        _selectedSourceLanguage = value);
                                   }
                                 },
                                 isDarkMode: isDarkMode,
@@ -793,7 +730,8 @@ class _TranslatorPageState extends State<TranslatorPage> {
                           Expanded(
                             child: Container(
                               height: 50,
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
@@ -807,10 +745,12 @@ class _TranslatorPageState extends State<TranslatorPage> {
                               ),
                               child: _buildDropdown(
                                 value: _selectedTargetLanguage,
-                                hint: AppLocalizations.of(context).translate('to'),
+                                hint: AppLocalizations.of(context)
+                                    .translate('to'),
                                 onChanged: (value) {
                                   if (value != null) {
-                                    setState(() => _selectedTargetLanguage = value);
+                                    setState(() =>
+                                        _selectedTargetLanguage = value);
                                   }
                                 },
                                 isDarkMode: isDarkMode,
@@ -855,8 +795,9 @@ class _TranslatorPageState extends State<TranslatorPage> {
                             child: TextField(
                               controller: _textController,
                               decoration: InputDecoration(
-                                hintText: AppLocalizations.of(context).translate(
-                                    'type_or_speak_text_to_translate'),
+                                hintText: AppLocalizations.of(context)
+                                    .translate(
+                                        'type_or_speak_text_to_translate'),
                                 hintStyle: TextStyle(
                                   fontSize: 13,
                                   color: isDarkMode
