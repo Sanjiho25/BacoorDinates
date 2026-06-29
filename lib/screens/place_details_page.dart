@@ -29,6 +29,13 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
   bool _expanded = false;
   bool _likeProcessing = false;
 
+  // ── Translation cache ───────────────────────────────────────────────────────
+  // Cached future so rebuilds (e.g. from setState on listen-button tap) don't
+  // fire a fresh network request every frame.
+  Future<Translation>? _translationFuture;
+  String _cachedOriginalDescription = '';
+  Locale? _cachedLocale;
+
   @override
   void initState() {
     super.initState();
@@ -107,12 +114,31 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
   /// Maps app locale → language code for GoogleTranslator.
   String mapLocaleToTranslationLang(Locale locale) {
     if (locale.languageCode == 'zh') {
-      if (locale.countryCode == 'TW') return 'zh-TW';
-      if (locale.countryCode == 'SG') return 'zh-SG';
-      return 'zh-CN';
+      if (locale.countryCode == 'TW') return 'zh-tw';
+      // zh-SG and zh-CN both use Simplified Chinese
+      return 'zh-cn';
     }
     if (locale.languageCode == 'tl') return 'tl';
+    if (locale.languageCode == 'ms') return 'ms';
     return locale.languageCode;
+  }
+
+  /// Returns (or rebuilds) the translation future only when the source text
+  /// or target locale actually changes, preventing re-fetches on every build.
+  Future<Translation> _getTranslationFuture(
+      String originalDescription, Locale locale) {
+    if (_translationFuture != null &&
+        _cachedOriginalDescription == originalDescription &&
+        _cachedLocale == locale) {
+      return _translationFuture!;
+    }
+    _cachedOriginalDescription = originalDescription;
+    _cachedLocale = locale;
+    _translationFuture = GoogleTranslator().translate(
+      originalDescription,
+      to: mapLocaleToTranslationLang(locale),
+    );
+    return _translationFuture!;
   }
 
   // ── TTS ────────────────────────────────────────────────────────────────────
@@ -220,10 +246,8 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
           _likesInitialized = true;
         }
 
-        final translationFuture = GoogleTranslator().translate(
-          originalDescription,
-          to: mapLocaleToTranslationLang(currentLocale),
-        );
+        final translationFuture = _getTranslationFuture(
+          originalDescription, currentLocale);
 
         return FutureBuilder<Translation>(
           future: translationFuture,

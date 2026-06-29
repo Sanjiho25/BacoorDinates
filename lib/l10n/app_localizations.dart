@@ -10,10 +10,26 @@ class AppLocalizations {
   }
 
   String translate(String key) {
-    String localeKey = _locale.countryCode != null 
-        ? '${_locale.languageCode}_${_locale.countryCode}'
+    // Guard against empty-string countryCode (e.g. Locale('zh', ''))
+    final countryCode = _locale.countryCode;
+    String localeKey = (countryCode != null && countryCode.isNotEmpty)
+        ? '${_locale.languageCode}_$countryCode'
         : _locale.languageCode;
-    return _localizedValues[localeKey]?[key] ?? _localizedValues['en']?[key] ?? key;
+
+    // Exact locale key match
+    final exact = _localizedValues[localeKey]?[key];
+    if (exact != null) return exact;
+
+    // Language-code-only fallback (e.g. 'zh' → try 'zh_CN' first)
+    for (final mapKey in _localizedValues.keys) {
+      if (mapKey.startsWith(_locale.languageCode)) {
+        final fallback = _localizedValues[mapKey]?[key];
+        if (fallback != null) return fallback;
+      }
+    }
+
+    // Final fallback to English
+    return _localizedValues['en']?[key] ?? key;
   }
 
   // Convenience getters for commonly used translations
@@ -416,7 +432,7 @@ class AppLocalizations {
   'cannot_launch_call': 'cannot be called.',
   'call_failed': 'Call failed',
   'select_emergency_contact': 'Select a contact to call',
-    },
+    }, // end 'en'
     'ja': {
       'loginTitle': 'ログイン',
       'email': 'メールアドレス',
@@ -604,7 +620,11 @@ class AppLocalizations {
   'share': '共有',
   'address': '住所',
   'emergency_contacts': '緊急連絡先',
-    },
+  'call': '電話する',
+  'cannot_launch_call': '電話できません。',
+  'call_failed': '電話に失敗しました',
+  'select_emergency_contact': '電話するコンタクトを選択',
+    }, // end 'ja'
     'ko': {
       'loginTitle': '로그인',
       'email': '이메일',
@@ -792,7 +812,11 @@ class AppLocalizations {
   'share': '공유',
   'address': '주소',
   'emergency_contacts': '비상 연락처',
-    },
+  'call': '전화하기',
+  'cannot_launch_call': '전화할 수 없습니다.',
+  'call_failed': '전화 실패',
+  'select_emergency_contact': '전화할 연락처 선택',
+    }, // end 'ko'
     'zh_CN': {
       // Place details / UI labels
       'place_details': '景点详情',
@@ -980,7 +1004,11 @@ class AppLocalizations {
       'confirm_delete': '确认删除',
       'confirm_delete_itinerary': '您确定要删除此行程吗？',
       'emergency_contacts': '紧急联系人',
-    },
+      'call': '致电',
+      'cannot_launch_call': '无法拨打。',
+      'call_failed': '通话失败',
+      'select_emergency_contact': '选择联系人以拨打',
+    }, // end 'zh_CN'
     'zh_TW': {
       'loginTitle': '登入',
       'email': '電子郵件',
@@ -1169,9 +1197,24 @@ class AppLocalizations {
   'address': '地址',
   // (duplicate simplified-chinese UI keys removed)
   'emergency_contacts': '緊急聯絡人',
-    },
+  'call': '致電',
+  'cannot_launch_call': '無法撥打。',
+  'call_failed': '通話失敗',
+  'select_emergency_contact': '選擇聯絡人以撥打',
+    }, // end 'zh_TW'
     'zh_SG': {
-      // Singapore uses Simplified Chinese generally; provide key subset as placeholders
+      // Singapore uses Simplified Chinese
+      'loginTitle': '登录',
+      'email': '邮箱',
+      'password': '密码',
+      'signIn': '登录',
+      'signInWithGoogle': '使用谷歌账号登录',
+      'forgotPassword': '忘记密码？',
+      'dontHaveAccount': '还没有账号？',
+      'register': '注册',
+      'signInFailed': '登录失败，请重试。',
+      'verifyEmail': '请验证您的邮箱。',
+      'accountInactive': '您的账号未激活，请验证邮箱。',
       'verify_email_message': '请验证您的邮箱以继续。',
       'email_not_verified': '邮箱未验证',
       'resend_verification_email': '是否重新发送验证邮件？',
@@ -1184,8 +1227,171 @@ class AppLocalizations {
       'upcoming': '即将到来',
       'delete': '删除',
       'error': '错误',
-
-    },
+      'or_sign_in_with': '或使用以下方式登录',
+      'sign_in': '登录',
+      'dont_have_account': '还没有账号？',
+      'username': '用户名',
+      'confirm_password': '确认密码',
+      'register_button': '注册',
+      'or_register_with': '或使用以下方式注册',
+      'passwords_not_match': '密码不匹配',
+      'registration_successful': '注册成功。请检查您的邮箱以验证账号。',
+      'registration_error': '注册错误：',
+      'nav_translator': '翻译',
+      'nav_camera': '增强现实',
+      'nav_home': '主页',
+      'nav_forum': '论坛',
+      'nav_user': '用户',
+      'no_profile_data': '无个人资料',
+      'travel_plan': '旅行计划',
+      'my_trips': '我的行程',
+      'account_settings': '账户设置',
+      'edit_profile': '编辑资料',
+      'change_password': '修改密码',
+      'notifications': '通知',
+      'app_settings': '应用设置',
+      'language': '语言',
+      'theme': '主题',
+      'about': '关于',
+      'sign_out': '退出登录',
+      'sign_out_confirm': '确定要退出登录吗？',
+      'cancel': '取消',
+      'close': '关闭',
+      'theme_settings': '主题设置',
+      'light_mode': '浅色模式',
+      'dark_mode': '深色模式',
+      'profile': '个人资料',
+      'my_itineraries': '我的行程',
+      'please_sign_in': '请登录',
+      'no_itineraries': '还没有行程。创建一个开始吧！',
+      'untitled_trip': '未命名的旅行',
+      'activities': '活动',
+      'view': '查看',
+      'error_deleting_itinerary': '删除行程错误：',
+      'itinerary_deleted': '行程已删除',
+      'itinerary_not_found': '找不到行程。',
+      'activities_title': '活动',
+      'activities_count': '个活动',
+      'no_activities': '暂无活动。',
+      'booked_status': '已预订',
+      'add_activity': '添加活动',
+      'edit_trip': '编辑行程',
+      'month_jan': '1月',
+      'month_feb': '2月',
+      'month_mar': '3月',
+      'month_apr': '4月',
+      'month_may': '5月',
+      'month_jun': '6月',
+      'month_jul': '7月',
+      'month_aug': '8月',
+      'month_sep': '9月',
+      'month_oct': '10月',
+      'month_nov': '11月',
+      'month_dec': '12月',
+      'edit_profile_title': '编辑资料',
+      'username_label': '用户名',
+      'username_empty_error': '请输入用户名',
+      'save_changes': '保存更改',
+      'profile_load_error': '加载个人资料失败',
+      'image_upload_error': '上传图片错误：',
+      'profile_picture_updated': '头像已成功更新！',
+      'image_select_error': '选择图片错误：',
+      'profile_update_success': '个人资料已更新',
+      'profile_update_error': '更新个人资料失败',
+      'passwordUpdatedSuccessfully': '密码已成功更新',
+      'passwordChangeFailed': '密码更改失败',
+      'currentPasswordIncorrect': '当前密码不正确',
+      'newPasswordTooWeak': '新密码过于简单',
+      'unexpectedErrorOccurred': '发生意外错误',
+      'passwordResetEmailSent': '密码重置邮件已发送',
+      'failedToSendPasswordResetEmail': '发送密码重置邮件失败',
+      'changePassword': '更改密码',
+      'currentPassword': '当前密码',
+      'enterCurrentPassword': '输入当前密码',
+      'newPassword': '新密码',
+      'newPasswordTooShort': '新密码长度不足',
+      'confirmPassword': '确认新密码',
+      'passwordsDoNotMatch': '密码不匹配',
+      'create_trip_title': '创建行程',
+      'trip_title_label': '行程标题 *',
+      'enter_trip_title': '输入行程标题',
+      'destination_label': '目的地 *',
+      'select_destination': '选择目的地',
+      'start_date_label': '开始日期 *',
+      'end_date_label': '结束日期 *',
+      'user_not_logged_in': '请先登录',
+      'complete_required_fields': '请填写所有必填项目。',
+      'end_date_before_start': '结束日期必须在开始日期之后。',
+      'trip_created_success': '行程创建成功！',
+      'trip_creation_failed': '创建行程失败：',
+      'error_loading_destinations': '加载目的地失败：',
+      'search_places': '搜索地点...',
+      'no_search_results': '没有找到匹配您搜索的地点',
+      'description': '描述',
+      'add_activity_title': '添加活动',
+      'activity_title_label': '标题 *',
+      'activity_title_hint': '输入活动标题',
+      'description_label': '描述 *',
+      'description_hint': '输入活动描述',
+      'date_label': '日期 *',
+      'time_label': '时间 *',
+      'location_label': '地点 *',
+      'select_location': '选择地点',
+      'budget_label': '预算',
+      'enter_budget': '输入预算',
+      'required_field': '必填',
+      'fill_required_fields': '请填写所有必填项目',
+      'error_creating_activity': '错误：',
+      'save_activity': '保存',
+      'community': '社区',
+      'what_is_on_your_mind': '你在想什么？',
+      'what_is_this_discussion': '这次讨论是什么？',
+      'photo': '照片',
+      'post': '帖子',
+      'hotels': '酒店',
+      'restaurants': '餐厅',
+      'churches': '教堂',
+      'historical': '历史的',
+      'popular': '受欢迎的',
+      'weather_in': '天气',
+      'search': '搜索',
+      'view_in_ar': '在增强现实中查看',
+      'from': '从',
+      'to': '到',
+      'voice_translator': '语音翻译器',
+      'enter_text': '输入文本',
+      'type_or_speak_text_to_translate': '输入或说出要翻译的文本',
+      'nearby_ar_objects': '附近的AR对象',
+      'no_nearby_ar_objects': '没有找到附近的AR对象。',
+      'select_ar_object_to_view': '选择一个AR对象以查看',
+      'stop_speaking': '停止说话',
+      'speak_description': '说出描述',
+      'delete_activity': '删除活动',
+      'confirm_delete_activity': '您确定要删除此活动吗？',
+      'activity_deleted': '活动已删除',
+      'activity_delete_failed': '删除活动失败：',
+      'confirm_delete': '确认删除',
+      'confirm_delete_itinerary': '您确定要删除此行程吗？',
+      'place_details': '景点详情',
+      'place_not_found': '找不到地点',
+      'listen': '收听',
+      'stop': '停止',
+      'explore': '探索',
+      'likes': '赞',
+      'original': '原文',
+      'translated': '翻译',
+      'read_more': '阅读更多',
+      'show_less': '收起',
+      'copied': '已复制',
+      'share': '分享',
+      'address': '地址',
+      'emergency_contacts': '紧急联系人',
+      'call': '致电',
+      'cannot_launch_call': '无法拨打。',
+      'call_failed': '通话失败',
+      'select_emergency_contact': '选择联系人以拨打',
+      'trip_updated_successfully': '行程更新成功',
+    }, // end 'zh_SG'
     'ms_MY': {
       'loginTitle': 'Log Masuk',
       'email': 'E-mel',
@@ -1358,9 +1564,12 @@ class AppLocalizations {
       'activity_delete_failed': 'Gagal memadam aktiviti: ',
       'confirm_delete': 'Sahkan Padam',
       'confirm_delete_itinerary': 'Adakah anda pasti mahu memadam perjalanan ini?',
-      'emergency_contacts': 'Kontak Kecemasan',
-      'select_emergency_contact': 'Pilih Kontak Kecemasan',
-    },
+      'emergency_contacts': 'Kenalan Kecemasan',
+      'call': 'Panggil',
+      'cannot_launch_call': 'tidak dapat dihubungi.',
+      'call_failed': 'Panggilan gagal',
+      'select_emergency_contact': 'Pilih kenalan untuk dihubungi',
+    }, // end 'ms_MY'
   };
 
   static const List<Locale> supportedLocales = [
@@ -1432,10 +1641,20 @@ class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> 
 
   @override
   bool isSupported(Locale locale) {
+    final requestedCountry = locale.countryCode;
     for (var supportedLocale in AppLocalizations.supportedLocales) {
       if (supportedLocale.languageCode == locale.languageCode) {
-        if (supportedLocale.countryCode == null || 
-            supportedLocale.countryCode == locale.countryCode) {
+        // If the requested locale has no country code, accept any variant
+        // e.g. device sends Locale('zh') → match Locale('zh','CN')
+        if (requestedCountry == null || requestedCountry.isEmpty) {
+          return true;
+        }
+        // Supported locale has no country code requirement → match all
+        if (supportedLocale.countryCode == null) {
+          return true;
+        }
+        // Both have country codes — must match exactly
+        if (supportedLocale.countryCode == requestedCountry) {
           return true;
         }
       }

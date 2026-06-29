@@ -30,17 +30,18 @@ class LanguageProvider extends ChangeNotifier {
 
   Future<void> setLocale(Locale locale) async {
     if (_currentLocale == locale) return;
-    
+
     _currentLocale = locale;
+    notifyListeners(); // Update UI immediately, don't wait for I/O
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      final localeString = locale.countryCode != null 
+      final localeString = locale.countryCode != null
           ? '${locale.languageCode}_${locale.countryCode}'
           : locale.languageCode;
       await prefs.setString(_languageKey, localeString);
     } catch (e) {
       debugPrint('Error saving language preference: $e');
     }
-    notifyListeners();
   }
 }

@@ -32,12 +32,14 @@ class EdgeTtsService {
     'ko-KR': 'ko-KR-SunHiNeural',
     'zh-CN': 'zh-CN-XiaoxiaoNeural',
     'zh-TW': 'zh-TW-HsiaoChenNeural',
+    'zh-SG': 'zh-CN-XiaoxiaoNeural', // SG uses Simplified Chinese voice
   };
 
   // Speaking rate per language
   static const Map<String, String> _rateMap = {
     'zh-CN': '-10%',
     'zh-TW': '-10%',
+    'zh-SG': '-10%',
     'ja-JP': '-8%',
     'ko-KR': '-8%',
     'en-US': '+0%',
